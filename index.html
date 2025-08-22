@@ -4868,6 +4868,11 @@
                         redoAction();
                     }
                     break;
+                    
+                case 'Escape':
+                    event.preventDefault();
+                    closeExportModal();
+                    break;
             }
         }
 
@@ -8432,6 +8437,9 @@
             // Initialize the new centralized UI system
             initExportUI();
             
+            // Setup canvas interaction for beat selection and keyboard shortcuts
+            setupCanvasInteraction();
+            
             // RENDER THE SEQUENCE FIRST - this is what you need to see!
             console.log('🎵 Rendering sequence...');
             try {
@@ -8612,9 +8620,17 @@
                 elements: new Map()
             };
             
-            // Get the EXACT same section data as the main program
-            const section = getCurrentSection();
+            // Get the raw section data
+            const rawSection = getCurrentSection();
+            if (!rawSection) {
+                renderEmptySheet(ctx, canvas);
+                return;
+            }
+            
+            // NORMALIZE DATA before rendering
+            const section = normalizeDataForRender(rawSection);
             if (!section) {
+                console.error('❌ Data normalization failed');
                 renderEmptySheet(ctx, canvas);
                 return;
             }
@@ -9378,6 +9394,131 @@
                 y: y,
                 beatRect: hitBeat
             };
+        }
+        
+        // Render visual selection indicator for selected beat
+        function renderSelectionIndicator(hitResult) {
+            if (!hitResult || !window.exportRuntime) return;
+            
+            console.log('🔄 Rendering selection indicator for:', hitResult);
+            
+            // Remove existing selection indicator
+            const existingIndicator = document.getElementById('selectionIndicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+            
+            // Find the exact beat rectangle from geometry data
+            let beatRect = null;
+            if (hitResult.beatRect) {
+                beatRect = hitResult.beatRect;
+            } else {
+                // Find beat rect from runtime data
+                const beat = window.exportRuntime.beats.find(b => 
+                    b.bar === hitResult.bar && b.beat === hitResult.beat
+                );
+                if (beat) beatRect = beat;
+            }
+            
+            if (!beatRect) {
+                console.warn('⚠️ Cannot find beat rectangle for selection');
+                return;
+            }
+            
+            // Create visual selection indicator
+            const indicator = document.createElement('div');
+            indicator.id = 'selectionIndicator';
+            indicator.style.cssText = `
+                position: absolute;
+                border: 3px solid #4ecdc4;
+                background: rgba(78, 205, 196, 0.2);
+                pointer-events: none;
+                z-index: 5;
+                border-radius: 4px;
+                transition: all 0.2s ease;
+                box-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+            `;
+            
+            // Calculate position relative to canvas
+            const canvas = document.getElementById('exportPreviewCanvas');
+            const canvasRect = canvas.getBoundingClientRect();
+            const scaleX = canvasRect.width / canvas.width;
+            const scaleY = canvasRect.height / canvas.height;
+            
+            indicator.style.left = (beatRect.x * scaleX) + 'px';
+            indicator.style.top = (beatRect.y * scaleY) + 'px';
+            indicator.style.width = (beatRect.width * scaleX) + 'px';
+            indicator.style.height = (beatRect.height * scaleY) + 'px';
+            
+            // Add to the sheet paper container
+            const sheetPaper = document.querySelector('.sheet-paper');
+            if (sheetPaper) {
+                sheetPaper.appendChild(indicator);
+            }
+            
+            // Update status display
+            updateSelectionStatus(hitResult);
+            
+            console.log(`✅ Selection indicator placed at Bar ${hitResult.bar + 1}, Beat ${hitResult.beat + 1}`);
+        }
+        
+        // Update selection status display
+        function updateSelectionStatus(hitResult) {
+            const statusElement = document.getElementById('selectionStatus');
+            if (statusElement) {
+                statusElement.textContent = `Selected: Bar ${hitResult.bar + 1}, Beat ${hitResult.beat + 1} (${hitResult.instrumentName || 'All instruments'})`;
+            }
+            
+            // Update selected count
+            const countElement = document.getElementById('selectedCount');
+            if (countElement) {
+                countElement.textContent = '1 beat selected';
+                countElement.style.display = 'block';
+            }
+        }
+        
+        // Wrapper functions for keyboard handlers
+        function addLineBreakFromSelection() {
+            if (!exportState.selectedBeat) {
+                console.warn('⚠️ No beat selected for break addition');
+                return;
+            }
+            addBreakFromSelection('line');
+        }
+        
+        function addPageBreakFromSelection() {
+            if (!exportState.selectedBeat) {
+                console.warn('⚠️ No beat selected for break addition');
+                return;
+            }
+            addBreakFromSelection('page');
+        }
+        
+        function removeBreakFromSelection() {
+            if (!exportState.selectedBeat) {
+                console.warn('⚠️ No beat selected for break removal');
+                return;
+            }
+            
+            const scopeData = getScopeData();
+            if (!scopeData || !scopeData.breaks) return;
+            
+            const { barIndex, beatIndex } = exportState.selectedBeat;
+            
+            // Find and remove break at selected position
+            const initialLength = scopeData.breaks.length;
+            scopeData.breaks = scopeData.breaks.filter(brk => 
+                !(brk.barIndex === barIndex && brk.beatIndex === beatIndex)
+            );
+            
+            if (scopeData.breaks.length < initialLength) {
+                console.log(`➖ Removed break at Bar ${barIndex + 1}, Beat ${beatIndex + 1}`);
+                updateBreakList();
+                renderExportPreview();
+                showToast('Break removed');
+            } else {
+                showToast('No break found at selected position');
+            }
         }
 
         function renderExportPreview() {
@@ -10434,10 +10575,11 @@
             const clickedBeat = getBeatAtPosition(x, y);
             
             if (clickedBeat) {
-                // Select the beat for keyboard break controls
-                selectedBeat = clickedBeat;
+                // Select the beat for keyboard break controls - use exportState.selectedBeat
+                exportState.selectedBeat = clickedBeat;
                 
                 // Visual feedback for selected beat
+                renderSelectionOutline();
                 renderExportPreview();
                 
                 // Show which beat is selected
@@ -10472,28 +10614,31 @@
             } else {
                 // Clear selection if clicking empty space
                 clearSelection();
-                selectedBeat = null; // Clear beat selection too
+                exportState.selectedBeat = { barIndex: 0, beatIndex: 0 }; // Reset to default beat
+                renderSelectionOutline();
             }
         }
         
         function getBeatAtPosition(x, y) {
-            const section = getCurrentSection();
+            const section = getScopeData(); // Use getScopeData for consistency
             if (!section) return null;
             
             const canvas = document.getElementById('exportPreviewCanvas');
             if (!canvas) return null;
             
+            // Generate layout same way as render function
             const layout = generateGridLayout(section, canvas.width);
+            if (!layout) return null;
             
-            // Check if click is in the beat label area (approximately)
-            // This is a simplified check - in a more complex implementation we'd track exact positions
+            // Check if click is near any beat center across the entire canvas height
             for (let barIndex = 0; barIndex < layout.totalBars; barIndex++) {
                 for (let beatIndex = 0; beatIndex < layout.beatsPerBar; beatIndex++) {
                     const globalBeatIndex = barIndex * layout.beatsPerBar + beatIndex;
                     const beatCenterX = layout.beatCenterX(globalBeatIndex);
                     
-                    // Check if click is near this beat's center (within reasonable range)
-                    if (Math.abs(x - beatCenterX) < 20 && y > 150 && y < 200) { // Approximate beat label area
+                    // More generous hit detection - check if click is near this beat's center
+                    // Allow clicks anywhere vertically and within reasonable horizontal range
+                    if (Math.abs(x - beatCenterX) < 30) { // Increased hit area for better usability
                         return { barIndex, beatIndex };
                     }
                 }
@@ -12506,7 +12651,7 @@ ${elements.join('\n')}
                 const beatLabel = `${barIndex + 1}.${beatInBar + 1}`;
                 
                 // Highlight selected beat
-                if (selectedBeat && selectedBeat.barIndex === barIndex && selectedBeat.beatIndex === beatInBar) {
+                if (exportState.selectedBeat && exportState.selectedBeat.barIndex === barIndex && exportState.selectedBeat.beatIndex === beatInBar) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(78, 205, 196, 0.3)';
                     ctx.fillRect(layout.beatCenterX(beatIndex) - 15, cursorY - 2, 30, exportStyles.beatNumbers.fontSize + 4);
