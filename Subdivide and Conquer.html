@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Subdivide and Conquer</title>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7fb; --ink:#111217; --muted:#60636b; --frame:#0b0c10; --panel:#ffffff;
+    --glitchA:#000; --glitchB:#c5c9d6; --sig:#6e727c;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:linear-gradient(180deg,#fff,#f6f7fb 40%,#eef1f7 100%);
+    color:var(--ink); font-family:"Courier Prime","Courier New",Courier,monospace;
+    -webkit-font-smoothing:antialiased; letter-spacing:.2px;
+  }
+  .frame{
+    max-width:1100px; margin:20px auto; background:var(--panel);
+    border:2px solid var(--frame); border-radius:22px;
+    box-shadow:10px 10px 0 var(--glitchA), -3px -3px 0 var(--glitchB); overflow:hidden;
+  }
+  .frame-inner{
+    padding:18px 18px 22px;
+    background:
+      linear-gradient(90deg, rgba(0,0,0,.04) 1px, transparent 1px) 0 0 / 14px 100%,
+      linear-gradient(0deg, rgba(0,0,0,.03) 1px, transparent 1px) 0 0 / 100% 14px,
+      var(--panel);
+  }
+  .header{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:6px 6px 14px;border-bottom:2px solid var(--frame)}
+  .title{margin:0;font-size:clamp(28px,5vw,60px);font-weight:700;letter-spacing:6px;line-height:1}
+  .made-by{margin-left:auto;font-family:"Great Vibes",cursive;font-size:clamp(22px,3.2vw,38px);color:var(--sig);white-space:nowrap;user-select:none;transform:translateY(4px)}
+  .layout{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:18px;padding-top:16px}
+  @media (max-width:980px){.layout{grid-template-columns:1fr}}
+
+  .panel{
+    background:#fff;border:2px solid var(--frame);border-radius:16px;padding:14px;
+    box-shadow:6px 6px 0 var(--glitchA), -2px -2px 0 var(--glitchB); position:relative;
+  }
+  .section-title{font-size:12px;text-transform:uppercase;margin:0 0 12px;letter-spacing:1.5px}
+  .form{display:grid;grid-template-columns:1fr;gap:12px}
+  .chips{display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:8px}
+  .chip{
+    border:2px solid var(--frame);background:#fff;color:var(--ink);padding:8px 10px;border-radius:12px;
+    display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;justify-content:center;
+    box-shadow:3px 3px 0 var(--glitchA), -1px -1px 0 var(--glitchB);
+  }
+  .chip input{appearance:none;width:14px;height:14px;border:2px solid var(--frame);display:inline-block}
+  .chip input:checked{background:var(--ink)}
+
+  .row{display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:center}
+  .inline{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+  .num,.sel{
+    width:100%;padding:8px 10px;border-radius:10px;border:2px solid var(--frame);background:#fff;color:var(--ink);
+    box-shadow:3px 3px 0 var(--glitchA), -1px -1px 0 var(--glitchB);
+  }
+  .range input[type=range]{width:100%}
+  .small{font-size:12px;color:var(--muted)}
+
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:12px;
+    border:2px solid var(--frame);background:#fff;color:var(--ink);cursor:pointer;font-weight:700;text-transform:uppercase;font-size:12px;
+    box-shadow:4px 4px 0 var(--glitchA), -2px -2px 0 var(--glitchB);
+  }
+  .btn:active{transform:translate(1px,1px);box-shadow:2px 2px 0 var(--glitchA)}
+
+  .score{background:#fff;border:2px solid var(--frame);border-radius:16px;padding:10px;box-shadow:6px 6px 0 var(--glitchA), -2px -2px 0 var(--glitchB);min-height:300px;overflow:auto}
+  #score{min-height:260px}
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="frame-inner">
+      <div class="header">
+        <h1 class="title">SUBDIVIDE AND CONQUER</h1>
+        <div class="made-by">Made by Jan Heírman</div>
+      </div>
+
+      <div class="layout">
+        <!-- Controls -->
+        <section class="panel">
+          <div class="section-title">Subdivisies per tel (1–11)</div>
+          <div class="chips" id="subs"></div>
+
+          <div class="form">
+            <div class="row">
+              <div>Rust-percentage</div>
+              <div class="range">
+                <input type="range" id="rest" min="0" max="100" value="30" />
+                <div class="small">Huidig: <span id="restVal">30%</span></div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div>Maatsoort</div>
+              <div class="inline">
+                <input class="num" id="tsTop" type="number" min="1" max="12" value="4" />
+                <span style="text-align:center">/</span>
+                <select class="sel" id="tsBot">
+                  <option value="2">2</option>
+                  <option value="4" selected>4</option>
+                  <option value="8">8</option>
+                  <option value="16">16</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div>Aantal maten</div>
+              <input class="num" id="measures" type="number" min="1" max="64" value="4" />
+            </div>
+
+            <div class="btns">
+              <button class="btn" id="randomizeBtn">Randomize</button>
+              <button class="btn" id="resetBtn">Reset</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Score -->
+        <section class="score">
+          <div id="score"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ---------- State ----------
+  const subsWrap = document.getElementById('subs');
+  const restEl = document.getElementById('rest');
+  const restVal = document.getElementById('restVal');
+  const tsTopEl = document.getElementById('tsTop');
+  const tsBotEl = document.getElementById('tsBot');
+  const measuresEl = document.getElementById('measures');
+  const scoreEl = document.getElementById('score');
+
+  // chips 1..11 (default 2,3,4,6,8)
+  function makeChip(n, checked=false){
+    const label = document.createElement('label');
+    label.className = 'chip';
+    label.innerHTML = `<input type="checkbox" data-sub="${n}" ${checked?'checked':''}><span>${n}</span>`;
+    return label;
+  }
+  for(let i=1;i<=11;i++) subsWrap.appendChild(makeChip(i,[2,3,4,6,8].includes(i)));
+
+  function getSubs(){ const a=[]; subsWrap.querySelectorAll('input[type=checkbox]:checked').forEach(cb=>a.push(+cb.dataset.sub)); return a.sort((x,y)=>x-y); }
+  const isPow2 = n => n>0 && (n & (n-1))===0;
+  function lowerPow2(n){ if(n<=1) return 1; let p=1; while((p<<1)<=n) p<<=1; return p; }
+  function choice(a){ return a[Math.floor(Math.random()*a.length)]; }
+  const clampInt = (v,lo,hi) => Math.max(lo,Math.min(hi,Math.round(v)));
+
+  // ---------- Generator (subdivisie per beat) ----------
+  function generateExercise({measures, top, bottom, subdivisions, restPct}){
+    if(!subdivisions.length) throw new Error('Kies minstens één subdivisie.');
+    const res=[];
+    for(let m=0;m<measures;m++){
+      const beats=[];
+      for(let b=0;b<top;b++){
+        const s = choice(subdivisions);
+        const events=[];
+        for(let k=0;k<s;k++) events.push({ rest: Math.random() < restPct });
+        beats.push({ s, events });
+      }
+      res.push(beats);
+    }
+    return res;
+  }
+
+  // ---------- SVG Notation (beams + tuplets + correcte rusten) ----------
+  function renderScore(data,{top,bottom}){
+    scoreEl.innerHTML = '';
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const W = 960, H = Math.max(300, Math.ceil(data.length/2)*170);
+    const svg = document.createElementNS(svgNS,'svg');
+    svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+    svg.style.display='block'; svg.style.margin='0 auto';
+    svg.style.fontFamily='"Courier Prime","Courier New",Courier,monospace';
+    scoreEl.appendChild(svg);
+
+    const staffGap = 12, staffHeight = staffGap*4;
+    const margX = 28, margY = 28;
+    const measW = (W - margX*2 - 30)/2;  // 2 maten per rij
+    const measH = 150;
+
+    const line = (x1,y1,x2,y2,sw=1.2,op=1)=>{
+      const l = document.createElementNS(svgNS,'line');
+      l.setAttribute('x1',x1); l.setAttribute('y1',y1);
+      l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+      l.setAttribute('stroke','#111217'); l.setAttribute('stroke-width',sw); l.setAttribute('opacity',op);
+      svg.appendChild(l); return l;
+    };
+    const rect = (x,y,w,h,fill='#111217')=>{
+      const r = document.createElementNS(svgNS,'rect');
+      r.setAttribute('x',x); r.setAttribute('y',y); r.setAttribute('width',w); r.setAttribute('height',h);
+      r.setAttribute('fill',fill); svg.appendChild(r); return r;
+    };
+    const ellipse = (cx,cy,rx,ry,fill='#111217')=>{
+      const e = document.createElementNS(svgNS,'ellipse');
+      e.setAttribute('cx',cx); e.setAttribute('cy',cy); e.setAttribute('rx',rx); e.setAttribute('ry',ry);
+      e.setAttribute('fill',fill); e.setAttribute('transform',`rotate(-20 ${cx} ${cy})`);
+      svg.appendChild(e); return e;
+    };
+    const text = (x,y,t,size=14,bold=false,anchor='start')=>{
+      const tx = document.createElementNS(svgNS,'text');
+      tx.setAttribute('x',x); tx.setAttribute('y',y); tx.setAttribute('font-size',size);
+      if(bold) tx.setAttribute('font-weight','700');
+      tx.setAttribute('text-anchor',anchor);
+      tx.textContent = t; svg.appendChild(tx); return tx;
+    };
+
+    // rest glyphs (gestileerd maar herkenbaar)
+    function drawRestQuarter(x, midY){
+      const p = document.createElementNS(svgNS,'path');
+      const y = midY + 8;
+      p.setAttribute('d', `M ${x} ${y-20} l 6 10 l -6 10 l 6 10 l -6 10`);
+      p.setAttribute('stroke','#111217'); p.setAttribute('stroke-width','2'); p.setAttribute('fill','none');
+      svg.appendChild(p);
+    }
+    function drawRestEighth(x, midY){ rect(x, midY-16, 2, 16); ellipse(x+4, midY-8, 3.1, 2.3); }
+    function drawRest16(x, midY){ rect(x, midY-20, 2, 20); ellipse(x+4, midY-12, 3.1, 2.3); ellipse(x+4, midY-6, 3.1, 2.3); }
+    function drawRest32(x, midY){ rect(x, midY-24, 2, 24); ellipse(x+4, midY-16, 3.1, 2.3); ellipse(x+4, midY-10, 3.1, 2.3); ellipse(x+4, midY-4, 3.1, 2.3); }
+    function restForDen(den, x, midY){
+      if (den<=4) drawRestQuarter(x, midY);
+      else if (den===8) drawRestEighth(x, midY);
+      else if (den===16) drawRest16(x, midY);
+      else drawRest32(x, midY);
+    }
+
+    // mapping: denom -> number of beams (4→0,8→1,16→2,32→3)
+    const beamsForDen = den => Math.max(0, Math.log2(den) - 2);
+
+    let idx = 0;
+    for(let row=0; idx<data.length; row++){
+      const yTop = margY + row*measH;
+
+      for(let col=0; col<2 && idx<data.length; col++, idx++){
+        const xLeft = margX + col*(measW+30);
+        const staffY = yTop + 20;
+
+        // 5 lines & barlines
+        for(let i=0;i<5;i++) line(xLeft, staffY + i*staffGap, xLeft+measW, staffY + i*staffGap, 1.2);
+        line(xLeft, staffY, xLeft, staffY+staffHeight, 1.6);
+        line(xLeft+measW, staffY, xLeft+measW, staffY+staffHeight, 1.6);
+
+        // percussion clef
+        rect(xLeft+6, staffY, 6, staffHeight, '#111217');
+        rect(xLeft+4, staffY+staffGap*2-6, 14, 12, '#111217');
+
+        // time signature only once
+        if (row===0 && col===0){
+          text(xLeft+28, staffY+staffGap*1.4, String(top), 16, true);
+          text(xLeft+28, staffY+staffGap*3.6, String(bottom), 16, true);
+        }
+
+        // drawing area
+        const startX = xLeft + 52;
+        const beatW = (measW - (startX-xLeft) - 6) / top;
+        const midY = staffY + staffGap*2 + 2;
+        const noteY = midY + 2;
+
+        beats.forEach((beat, bi)=>{
+  const s = beat.s;
+
+  // inside duration (denominator) & beam level
+  let insideDen;
+  if (s===1) insideDen = bottom;
+  else if (isPow2(s)) insideDen = bottom * s;
+  else insideDen = bottom * lowerPow2(s);
+
+  const beamCount = Math.max(0, Math.log2(insideDen) - 2); // 4→0, 8→1, 16→2, 32→3
+
+  // --- ADAPTIVE SPACING (zorgt dat 7/11 niet botsen) ---
+  const minCell = 16;                              // min. pixels per event
+  const cellW = Math.max(minCell, beatW / s);
+  const actualBeatW = cellW * s;
+  const beatLeft = startX + bi*beatW + (beatW - actualBeatW)/2; // center in beat
+
+  // tuplet bracket (alleen bij niet-machten-van-2), gecentreerd boven groep
+  if (!isPow2(s)){
+    const yB = staffY - 12;
+    const left = beatLeft + 2, right = beatLeft + actualBeatW - 2;
+    line(left, yB, right, yB, 1.2);
+    line(left, yB, left, yB+6, 1.2);
+    line(right, yB, right, yB+6, 1.2);
+    text((left+right)/2, yB-4, String(s), 12, true, 'middle');
+  }
+
+  // beaming: aaneengesloten noot-runs binnen de beat (breek bij rust)
+  let runStart = null;
+  const flushRun = (endIndex)=>{
+    if (runStart===null || beamCount===0) { runStart = null; return; }
+    const x1 = beatLeft + (runStart+0.5)*cellW + 6;
+    const x2 = beatLeft + (endIndex-0.5)*cellW + 6;
+    const w = Math.max(4, x2-x1);
+    for (let b=0; b<beamCount; b++){
+      const yBeam = noteY - 14 - b*4;
+      rect(x1, yBeam, w, 3); // solide beam
+    }
+    runStart = null;
+  };
+
+  for(let i=0;i<s;i++){
+    const cx = beatLeft + (i+0.5)*cellW;
+    const ev = beat.events[i];
+
+    if (s===1){
+      if (ev.rest) restForDen(insideDen, cx-3, midY);
+      else {
+        ellipse(cx, noteY, 6.6, 4.6);
+        if (insideDen >= 8) line(cx+6, noteY-12, cx+6, noteY, 1.2);
+      }
+      break; // 1 event in subdivisie 1
+    }
+
+    if (ev.rest){
+      // rust tekent + beëindig lopende beam-groep
+      restForDen(insideDen, cx-3, midY);
+      flushRun(i-1);
+    } else {
+      // nootkop + stok omhoog
+      ellipse(cx, noteY, 5.8, 4.2);
+      if (insideDen >= 8){
+        line(cx+6, noteY-12, cx+6, noteY, 1.2);
+        if (beamCount===0){
+          // losse 8e: mini-vlag (als er geen beams zijn)
+          rect(cx+6, noteY-12, 8, 3);
+        } else if (runStart===null){
+          runStart = i;
+        }
+      }
+    }
+  }
+  flushRun(s-1);
+
+  // subtiele tel-scheiding aan het eind van de beat
+  if (bi<top-1){
+    const bx = startX + (bi+1)*beatW;
+    line(bx, staffY, bx, staffY+staffHeight, 0.8, 0.18);
+  }
+});
+          if (bi<top-1) line(bx+beatW, staffY, bx+beatW, staffY+staffHeight, 0.8, 0.18);
+        });
+      }
+    }
+  }
+
+  // ---------- Wiring (render only on Randomize / Reset) ----------
+  function readState(){
+    return {
+      subdivisions: getSubs(),
+      restPct: (+restEl.value)/100,
+      top: clampInt(+tsTopEl.value,1,12),
+      bottom: +tsBotEl.value,
+      measures: clampInt(+measuresEl.value,1,64),
+    };
+  }
+  function regenerate(){
+    const {measures, top, bottom, subdivisions, restPct} = readState();
+    const data = generateExercise({measures, top, bottom, subdivisions, restPct});
+    renderScore(data, {top, bottom});
+    restVal.textContent = `${Math.round(restPct*100)}%`;
+  }
+
+  // Slider toont enkel waarde (geen live render)
+  restEl.addEventListener('input', () => { restVal.textContent = `${restEl.value}%`; });
+
+  document.getElementById('randomizeBtn').addEventListener('click', regenerate);
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    subsWrap.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = [2,3,4,6,8].includes(+cb.dataset.sub));
+    restEl.value = 30; restVal.textContent = '30%';
+    tsTopEl.value = 4; tsBotEl.value = 4; measuresEl.value = 4;
+    regenerate();
+  });
+
+  // Eerste render
+  regenerate();
+</script>
+</body>
+</html>

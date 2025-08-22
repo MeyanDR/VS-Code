@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(open index.html)",
+      "Bash(sed:*)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}
