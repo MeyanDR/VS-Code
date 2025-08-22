@@ -5,7 +5,8 @@
       "Bash(open index.html)",
       "Bash(sed:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(sed:*)"
     ],
     "defaultMode": "acceptEdits"
   }

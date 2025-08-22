@@ -8444,6 +8444,7 @@
             console.log('🎵 Rendering sequence...');
             try {
                 renderExportPreview();
+                renderSelectionOutline(); // Ensure beat selection is shown
                 console.log('✅ Sequence rendered successfully!');
             } catch (e) {
                 console.error('❌ Failed to render sequence:', e);
@@ -8595,45 +8596,68 @@
             }
         }
 
-        function renderActualSequence() {
-            // PROFESSIONAL DRUM SHEET RENDERING
-            console.log('🎼 Rendering PROFESSIONAL drum sheet...');
+        // Normalize section data to ensure consistent structure for rendering
+        function normalizeDataForRender(rawSection) {
+            if (!rawSection) {
+                console.warn("⚠️ No section provided for normalization");
+                return null;
+            }
             
+            const normalized = {
+                name: rawSection.name || "Untitled Section",
+                bars: Math.max(1, parseInt(rawSection.bars) || 4),
+                beats: Math.max(1, parseInt(rawSection.beats) || 4),
+                subdivision: Math.max(1, parseInt(rawSection.subdivision) || 4),
+                notes: rawSection.notes || "",
+                breaks: Array.isArray(rawSection.breaks) ? rawSection.breaks : [],
+                groups: rawSection.groups || {},
+                patternType: rawSection.patternType || "loop",
+                id: rawSection.id,
+                data: []
+            };
+            
+            const totalSteps = normalized.bars * normalized.beats * normalized.subdivision;
+            
+            if (Array.isArray(rawSection.data)) {
+                rawSection.data.forEach((rawInstrument, index) => {
+                    if (!rawInstrument) return;
+                    
+                    const normalizedInstrument = {
+                        name: rawInstrument.name || `Instrument ${index + 1}`,
+                        visible: rawInstrument.visible !== false,
+                        groupId: rawInstrument.groupId || null,
+                        pattern: [],
+                        steps: []
+                    };
+                    
+                    let rawPattern = rawInstrument.pattern || rawInstrument.steps || [];
+                    if (typeof rawPattern === "string") {
+                        rawPattern = rawPattern.split("");
+                    } else if (!Array.isArray(rawPattern)) {
+                        rawPattern = [];
+                    }
+                    
+                    for (let i = 0; i < totalSteps; i++) {
+                        const value = (i < rawPattern.length && rawPattern[i] != null) ? String(rawPattern[i]) : "";
+                        normalizedInstrument.pattern[i] = value;
+                    }
+                    
+                    normalizedInstrument.steps = [...normalizedInstrument.pattern];
+                    normalized.data.push(normalizedInstrument);
+                });
+            }
+            
+            console.log(`✅ Normalized ${normalized.data.length} instruments, ${totalSteps} steps each`);
+            return normalized;
+        }
+        function renderActualSequence() {
+            console.log('🎼 Rendering PROFESSIONAL drum sheet... (LEGACY - Use renderScore instead)');
+            
+            // Redirect to unified render pipeline
             const canvas = document.getElementById('exportPreviewCanvas');
             if (!canvas) return;
             
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Clean background
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Initialize exportRuntime for geometry tracking
-            window.exportRuntime = {
-                pageRect: { x: 0, y: 0, width: canvas.width, height: canvas.height },
-                scale: 1.0,
-                systems: [],
-                instruments: [],
-                beats: [],
-                bars: [],
-                elements: new Map()
-            };
-            
-            // Get the raw section data
-            const rawSection = getCurrentSection();
-            if (!rawSection) {
-                renderEmptySheet(ctx, canvas);
-                return;
-            }
-            
-            // NORMALIZE DATA before rendering
-            const section = normalizeDataForRender(rawSection);
-            if (!section) {
-                console.error('❌ Data normalization failed');
-                renderEmptySheet(ctx, canvas);
-                return;
-            }
+            renderScore(canvas, 'preview');
             
             // Get the EXACT same instruments as shown in main program
             const instruments = section.data || [];
@@ -9525,18 +9549,8 @@
             const canvas = document.getElementById('exportPreviewCanvas');
             if (!canvas) return;
             
-            // Update canvas size to match LAYOUT.page
-            canvas.width = LAYOUT.page.width;
-            canvas.height = LAYOUT.page.height;
-            
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // White background
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            renderExportPreviewToContext(ctx, canvas.width, canvas.height);
+            // Use unified render pipeline
+            renderScore(canvas, 'preview');
             
             // Apply dynamic scaling to fit container
             applyDynamicScaling();
@@ -9546,6 +9560,81 @@
             
             // Create drop targets for drag and drop functionality
             createBeatDropTargets();
+        }
+        
+        // UNIFIED RENDER PIPELINE - Works for both preview and export
+        function renderScore(targetCanvas, renderMode = 'preview') {
+            if (!targetCanvas) {
+                console.error('❌ No target canvas provided to renderScore');
+                return null;
+            }
+            
+            console.log(`🎨 Unified render pipeline: ${renderMode} mode`);
+            
+            // Get normalized section data
+            const rawSection = getCurrentSection();
+            if (!rawSection) {
+                console.warn('⚠️ No section available for rendering');
+                return null;
+            }
+            
+            const section = normalizeDataForRender(rawSection);
+            if (!section) {
+                console.error('❌ Data normalization failed in renderScore');
+                return null;
+            }
+            
+            // Set canvas dimensions based on mode
+            if (renderMode === 'export') {
+                // For export, use high resolution
+                targetCanvas.width = 1270;  // A4 scaled up for quality
+                targetCanvas.height = 1797;
+            } else {
+                // For preview, use LAYOUT page dimensions
+                targetCanvas.width = LAYOUT.page.width;
+                targetCanvas.height = LAYOUT.page.height;
+            }
+            
+            const ctx = targetCanvas.getContext('2d');
+            ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+            
+            // White background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+            
+            // Initialize runtime for hit-testing (only for preview)
+            if (renderMode === 'preview') {
+                window.exportRuntime = {
+                    pageRect: { x: 0, y: 0, width: targetCanvas.width, height: targetCanvas.height },
+                    scale: renderMode === 'export' ? 1.6 : 1.0,
+                    systems: [],
+                    instruments: [],
+                    beats: [],
+                    bars: [],
+                    elements: new Map()
+                };
+            }
+            
+            // Get visible instruments
+            const instruments = section.data || [];
+            const visibleInstruments = instruments.filter(inst => inst.visible !== false);
+            
+            if (visibleInstruments.length === 0) {
+                renderEmptySheet(ctx, targetCanvas);
+                return { section, instruments: visibleInstruments };
+            }
+            
+            // Render using the Break 2 layout system
+            renderBreak2Layout(ctx, targetCanvas, section, visibleInstruments);
+            
+            console.log(`✅ Unified render complete: ${visibleInstruments.length} instruments rendered`);
+            
+            return {
+                section,
+                instruments: visibleInstruments,
+                canvas: targetCanvas,
+                context: ctx
+            };
         }
 
         function applyDynamicScaling() {
@@ -12089,27 +12178,23 @@
                     return exportPDFFromCanvas();
                 }
                 
-                // Create high-resolution canvas first
-                const previewCanvas = document.getElementById('exportPreviewCanvas');
-                if (!previewCanvas) {
-                    alert('Export canvas not found!');
-                    return;
-                }
-                
-                const scaleFactor = 4; // High resolution
+                // Create high-resolution canvas using unified pipeline
+                const scaleFactor = 4; // High resolution for PDF
                 const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = previewCanvas.width * scaleFactor;
-                exportCanvas.height = previewCanvas.height * scaleFactor;
+                exportCanvas.width = 1270 * scaleFactor;  // A4 dimensions scaled up
+                exportCanvas.height = 1797 * scaleFactor;
                 
                 const ctx = exportCanvas.getContext('2d');
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
                 ctx.scale(scaleFactor, scaleFactor);
                 
-                // Render high-quality content
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-                renderExportPreviewToContext(ctx, previewCanvas.width, previewCanvas.height);
+                // Use unified render pipeline for consistent output
+                const result = renderScore(exportCanvas, 'export');
+                if (!result) {
+                    alert('Failed to render content for PDF export!');
+                    return;
+                }
                 
                 // Create PDF with high-quality image
                 const pdf = new jsPDFClass({
@@ -12238,17 +12323,11 @@
             try {
                 console.log('Starting high-quality JPG export...');
                 
-                // Create high-resolution export canvas (300 DPI equivalent)
-                const previewCanvas = document.getElementById('exportPreviewCanvas');
-                if (!previewCanvas) {
-                    alert('Export canvas not found!');
-                    return;
-                }
-                
+                // Create high-resolution export canvas using unified pipeline
                 const scaleFactor = 4; // 4x resolution for print quality
                 const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = previewCanvas.width * scaleFactor;
-                exportCanvas.height = previewCanvas.height * scaleFactor;
+                exportCanvas.width = 1270 * scaleFactor;  // A4 dimensions scaled up
+                exportCanvas.height = 1797 * scaleFactor;
                 
                 const ctx = exportCanvas.getContext('2d');
                 
@@ -12257,12 +12336,12 @@
                 ctx.imageSmoothingQuality = 'high';
                 ctx.scale(scaleFactor, scaleFactor);
                 
-                // Clear high-res canvas background
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-                
-                // Re-render the exact same content as preview but at high resolution
-                renderExportPreviewToContext(ctx, previewCanvas.width, previewCanvas.height);
+                // Use unified render pipeline for consistent output
+                const result = renderScore(exportCanvas, 'export');
+                if (!result) {
+                    alert('Failed to render content for JPG export!');
+                    return;
+                }
                 
                 // Convert to high-quality JPEG (95% quality)
                 const link = document.createElement('a');
@@ -13947,3 +14026,33 @@ function applyTheme(themeName) {
 </script>
 </body>
 </html>
+
+<script>
+// FORCE ACCORDION TO WORK - EMERGENCY FIX
+document.addEventListener("DOMContentLoaded", function() {
+    setTimeout(function() {
+        console.log("🔧 Emergency accordion fix...");
+        
+        const headers = document.querySelectorAll(".panel-header");
+        headers.forEach(header => {
+            header.addEventListener("click", function(e) {
+                e.stopPropagation();
+                const section = this.closest(".panel-section");
+                if (section) {
+                    section.classList.toggle("open");
+                    console.log("📂 Panel toggled:", section.dataset.key);
+                }
+            });
+        });
+        
+        // Force open View panel (has zoom controls)
+        const viewPanel = document.querySelector("[data-key=\"view\"]");
+        if (viewPanel) {
+            viewPanel.classList.add("open");
+            console.log("👁️ View panel forced open");
+        }
+        
+        console.log("✅ Emergency accordion fix applied");
+    }, 1000);
+});
+</script>
