@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Export Features</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        canvas { border: 1px solid #ccc; margin: 20px 0; }
+        .controls { margin: 20px 0; }
+        .btn { 
+            padding: 8px 15px; 
+            margin: 5px; 
+            border: 1px solid #ccc; 
+            background: #f0f0f0; 
+            cursor: pointer; 
+        }
+        .btn:hover { background: #e0e0e0; }
+        .info { 
+            background: #f9f9f9; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Export Features Demo</h2>
+    
+    <div class="info">
+        <strong>Test Instructions:</strong><br>
+        1. Click on any beat number to select it (turns red)<br>
+        2. Press <strong>Enter</strong> to add a page break (orange line appears)<br>
+        3. Press <strong>Backspace</strong> to remove page break<br>
+        4. Use buttons below to control layout
+    </div>
+    
+    <div class="controls">
+        <button class="btn" onclick="clearPageBreaks()">Clear All Page Breaks</button>
+        <button class="btn" onclick="resetLayout()">Reset Layout</button>
+        <button class="btn" onclick="testAutoWrap()">Test Auto-Wrap</button>
+    </div>
+    
+    <canvas id="testCanvas" width="800" height="400"></canvas>
+    
+    <div id="status">Ready - Click beats to test functionality!</div>
+
+    <script>
+        // Mock data for testing
+        let selectedBeat = null;
+        let pageBreaks = new Set();
+        let exportClickHandlers = [];
+        
+        const mockSection = {
+            name: "Test Section",
+            bars: 4,
+            beats: 4,
+            subdivision: 4,
+            data: [
+                { name: "Kick", pattern: ["x", "", "", "", "x", "", "", "", "x", "", "", "", "x", "", "", ""], visible: true },
+                { name: "Snare", pattern: ["", "", "", "", "x", "", "", "", "", "", "", "", "x", "", "", ""], visible: true },
+                { name: "Hi-Hat", pattern: ["x", "x", "x", "x", "x", "x", "x", "x", "x", "x", "x", "x", "x", "x", "x", "x"], visible: true }
+            ]
+        };
+
+        function renderDemo() {
+            const canvas = document.getElementById('testCanvas');
+            const ctx = canvas.getContext('2d');
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            
+            // Setup
+            const margin = 40;
+            const rowHeight = 50;
+            const stepSize = 20;
+            const fontSize = 12;
+            const instrumentNameWidth = 80;
+            const patternStartX = margin + instrumentNameWidth;
+            
+            // Calculate layout
+            const totalBars = mockSection.bars;
+            const beatsPerBar = mockSection.beats;
+            const subdivisionPerBeat = mockSection.subdivision;
+            const beatWidth = subdivisionPerBeat * stepSize;
+            
+            // Calculate bars per line (auto-wrap feature)
+            const availableWidth = canvasWidth - patternStartX - margin;
+            const barsPerLine = Math.max(1, Math.floor(availableWidth / (beatWidth * beatsPerBar)));
+            const totalLines = Math.ceil(totalBars / barsPerLine);
+            
+            let beatPositions = [];
+            let currentY = margin + 50;
+            
+            // Render each line
+            for (let line = 0; line < totalLines; line++) {
+                const lineY = currentY + (line * (rowHeight * mockSection.data.length + 60));
+                
+                const lineStartBar = line * barsPerLine;
+                const lineEndBar = Math.min((line + 1) * barsPerLine, totalBars);
+                
+                // Draw bar numbers
+                ctx.font = `bold 14px Arial`;
+                ctx.fillStyle = '#666666';
+                for (let bar = lineStartBar; bar < lineEndBar; bar++) {
+                    const barX = patternStartX + ((bar - lineStartBar) * beatsPerBar * beatWidth);
+                    ctx.fillText(`Bar ${bar + 1}`, barX, lineY - 30);
+                }
+                
+                // Draw beat numbers
+                ctx.font = `12px Arial`;
+                ctx.fillStyle = '#888888';
+                for (let bar = lineStartBar; bar < lineEndBar; bar++) {
+                    for (let beat = 0; beat < beatsPerBar; beat++) {
+                        const beatX = patternStartX + ((bar - lineStartBar) * beatsPerBar + beat) * beatWidth;
+                        const globalBeat = bar * beatsPerBar + beat;
+                        
+                        ctx.fillText((beat + 1).toString(), beatX + 5, lineY - 15);
+                        
+                        // Store beat position for clicking
+                        beatPositions.push({
+                            x: beatX,
+                            y: lineY - 15,
+                            width: beatWidth,
+                            height: 20,
+                            globalBeat: globalBeat
+                        });
+                    }
+                }
+                
+                // Draw instruments for this line
+                let instrumentY = lineY;
+                mockSection.data.forEach((instrument) => {
+                    // Instrument name
+                    ctx.font = `12px Arial`;
+                    ctx.fillStyle = '#000000';
+                    ctx.fillText(instrument.name, margin, instrumentY + fontSize/2);
+                    
+                    // Draw steps
+                    for (let bar = lineStartBar; bar < lineEndBar; bar++) {
+                        for (let beat = 0; beat < beatsPerBar; beat++) {
+                            const globalBeat = bar * beatsPerBar + beat;
+                            const beatX = patternStartX + ((bar - lineStartBar) * beatsPerBar + beat) * beatWidth;
+                            
+                            for (let sub = 0; sub < subdivisionPerBeat; sub++) {
+                                const step = (bar * beatsPerBar * subdivisionPerBeat) + (beat * subdivisionPerBeat) + sub;
+                                const stepX = beatX + (sub * stepSize);
+                                const stepY = instrumentY - fontSize/2;
+                                
+                                // Highlight selected beat
+                                const isSelected = selectedBeat === globalBeat;
+                                
+                                if (isSelected) {
+                                    ctx.strokeStyle = '#ff4757';
+                                    ctx.lineWidth = 3;
+                                    ctx.fillStyle = '#ffecec';
+                                } else if (sub === 0) {
+                                    ctx.strokeStyle = '#333333';
+                                    ctx.lineWidth = 2;
+                                    ctx.fillStyle = '#f0f0f0';
+                                } else {
+                                    ctx.strokeStyle = '#cccccc';
+                                    ctx.lineWidth = 1;
+                                    ctx.fillStyle = '#fafafa';
+                                }
+                                
+                                ctx.strokeRect(stepX, stepY, stepSize - 1, stepSize - 1);
+                                ctx.fillRect(stepX + 1, stepY + 1, stepSize - 3, stepSize - 3);
+                                
+                                // Draw page break indicator
+                                if (pageBreaks.has(globalBeat) && sub === 0) {
+                                    ctx.strokeStyle = '#ff6b35';
+                                    ctx.lineWidth = 4;
+                                    ctx.beginPath();
+                                    ctx.moveTo(stepX - 2, stepY - 10);
+                                    ctx.lineTo(stepX - 2, stepY + stepSize + 10);
+                                    ctx.stroke();
+                                }
+                                
+                                // Draw step content
+                                const stepContent = instrument.pattern[step] || '';
+                                if (stepContent && stepContent.trim() !== '') {
+                                    ctx.fillStyle = '#000000';
+                                    ctx.font = `bold 12px Arial`;
+                                    const textWidth = ctx.measureText(stepContent).width;
+                                    const textX = stepX + (stepSize - textWidth) / 2;
+                                    const textY = stepY + stepSize/2 + fontSize/3;
+                                    ctx.fillText(stepContent, textX, textY);
+                                }
+                            }
+                        }
+                    }
+                    
+                    instrumentY += rowHeight;
+                });
+            }
+            
+            // Set up click handling
+            canvas.onclick = (event) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                for (const beatPos of beatPositions) {
+                    if (x >= beatPos.x && x <= beatPos.x + beatPos.width &&
+                        y >= beatPos.y - 20 && y <= beatPos.y + beatPos.height) {
+                        selectedBeat = beatPos.globalBeat;
+                        renderDemo();
+                        updateStatus(`Selected beat ${beatPos.globalBeat + 1}`);
+                        return;
+                    }
+                }
+                
+                selectedBeat = null;
+                renderDemo();
+                updateStatus('No beat selected');
+            };
+        }
+
+        // Keyboard handling
+        document.addEventListener('keydown', (event) => {
+            if (selectedBeat === null) return;
+            
+            if (event.key === 'Enter') {
+                pageBreaks.add(selectedBeat);
+                renderDemo();
+                updateStatus(`Added page break at beat ${selectedBeat + 1}`);
+            } else if (event.key === 'Backspace') {
+                pageBreaks.delete(selectedBeat);
+                renderDemo();
+                updateStatus(`Removed page break at beat ${selectedBeat + 1}`);
+            }
+        });
+
+        function clearPageBreaks() {
+            pageBreaks.clear();
+            selectedBeat = null;
+            renderDemo();
+            updateStatus('Cleared all page breaks');
+        }
+
+        function resetLayout() {
+            clearPageBreaks();
+            updateStatus('Reset layout');
+        }
+
+        function testAutoWrap() {
+            updateStatus('Auto-wrap test: Bars automatically wrap to next line when they don\'t fit!');
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        // Initial render
+        renderDemo();
+    </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Session Functionality</title>
+</head>
+<body>
+    <h2>Session Storage Test</h2>
+    <button onclick="testSaveSession()">Test Save Session</button>
+    <button onclick="testLoadOverview()">Test Load Overview</button>
+    <button onclick="clearTestData()">Clear Test Data</button>
+    <div id="output"></div>
+
+    <script>
+        function testSaveSession() {
+            try {
+                // Simulate session data
+                const testSession = {
+                    name: 'Test Session',
+                    projectName: 'Test Project',
+                    sections: [{id: 'intro', name: 'Intro'}, {id: 'verse', name: 'Verse'}],
+                    currentSectionId: 'intro',
+                    timestamp: new Date().toISOString()
+                };
+
+                const sessions = getAllSavedSessions();
+                const sessionId = 'test_session_' + Date.now();
+                sessions[sessionId] = testSession;
+                
+                localStorage.setItem('tromklub_sessions', JSON.stringify(sessions));
+                document.getElementById('output').innerHTML = '<p>✅ Test session saved successfully!</p>';
+            } catch (error) {
+                document.getElementById('output').innerHTML = '<p>❌ Error: ' + error.message + '</p>';
+            }
+        }
+
+        function testLoadOverview() {
+            try {
+                const sessions = getAllSavedSessions();
+                const output = document.getElementById('output');
+                
+                if (Object.keys(sessions).length === 0) {
+                    output.innerHTML = '<p>No sessions found. Try saving a test session first.</p>';
+                    return;
+                }
+
+                let html = '<p>✅ Found sessions:</p><ul>';
+                Object.entries(sessions).forEach(([id, data]) => {
+                    html += `<li><strong>${data.name}</strong> - ${data.projectName} (${data.sections ? data.sections.length : 0} sections)</li>`;
+                });
+                html += '</ul>';
+                
+                output.innerHTML = html;
+            } catch (error) {
+                document.getElementById('output').innerHTML = '<p>❌ Error: ' + error.message + '</p>';
+            }
+        }
+
+        function clearTestData() {
+            localStorage.removeItem('tromklub_sessions');
+            localStorage.removeItem('tromklub_session');
+            document.getElementById('output').innerHTML = '<p>🗑️ Test data cleared.</p>';
+        }
+
+        function getAllSavedSessions() {
+            try {
+                const sessionsData = localStorage.getItem('tromklub_sessions');
+                if (!sessionsData) {
+                    const oldSession = localStorage.getItem('tromklub_session');
+                    if (oldSession) {
+                        const parsedOld = JSON.parse(oldSession);
+                        return {
+                            'legacy_session': {
+                                name: parsedOld.projectName || 'Legacy Session',
+                                projectName: parsedOld.projectName,
+                                sections: parsedOld.sections,
+                                currentSectionId: parsedOld.currentSectionId,
+                                timestamp: parsedOld.timestamp || new Date().toISOString()
+                            }
+                        };
+                    }
+                    return {};
+                }
+                return JSON.parse(sessionsData);
+            } catch (error) {
+                console.error('Error getting saved sessions:', error);
+                return {};
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Pattern Type Switching</title>
+    <style>
+        .pattern-symbol { 
+            display: inline-block; 
+            padding: 10px; 
+            margin: 5px; 
+            border: 1px solid #ccc; 
+            cursor: pointer; 
+            background: #f0f0f0;
+        }
+        .pattern-symbol.active { 
+            background: #4ecdc4; 
+            color: white; 
+        }
+    </style>
+</head>
+<body>
+    <h2>Pattern Type Test</h2>
+    <div>
+        <div class="pattern-symbol active" id="loopSymbolSide" onclick="setPatternType('loop')" title="Loop - Repeats continuously">∞ Loop</div>
+        <div class="pattern-symbol" id="breakSymbolSide" onclick="setPatternType('break')" title="Break - Plays once">|| Break</div>
+    </div>
+    <div id="status"></div>
+
+    <script>
+        // Mock current section data
+        let currentSection = {
+            patternType: 'loop',
+            name: 'Test Section'
+        };
+
+        function getCurrentSection() {
+            return currentSection;
+        }
+
+        function saveAction(action, data) {
+            console.log('Save action:', action, data);
+        }
+
+        function renderSectionsOverview() {
+            console.log('Render sections overview called');
+            document.getElementById('status').innerHTML = 
+                `<p>Current pattern type: <strong>${currentSection.patternType}</strong></p>`;
+        }
+
+        function setPatternType(type) {
+            const currentSection = getCurrentSection();
+            if (currentSection && (type === 'loop' || type === 'break')) {
+                const beforeState = JSON.parse(JSON.stringify(currentSection));
+                currentSection.patternType = type;
+                const afterState = JSON.parse(JSON.stringify(currentSection));
+                
+                // Save action for undo/redo functionality
+                saveAction('pattern_type_change', { before: beforeState, after: afterState });
+                
+                // Update visual state of the pattern type buttons
+                document.getElementById('loopSymbolSide').classList.toggle('active', type === 'loop');
+                document.getElementById('breakSymbolSide').classList.toggle('active', type === 'break');
+                
+                // Re-render sections overview to reflect the change
+                renderSectionsOverview();
+            }
+        }
+
+        // Initialize display
+        renderSectionsOverview();
+    </script>
+</body>
+</html>
