@@ -3,7 +3,9 @@
     "allow": [
       "Bash(grep:*)",
       "Bash(open index.html)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "defaultMode": "acceptEdits"
   }
