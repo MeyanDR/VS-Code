@@ -3450,6 +3450,7 @@
             grid: {
                 // Core dimensions
                 stepW: 35,
+                beatWidth: 140, // Fixed width for each beat
                 beatGap: 2,
                 nameCol: 110,
                 rowGap: 8,
@@ -4680,7 +4681,7 @@
             const globalBeatIndex = barIndex * beatsPerBar + beatIndex;
             const globalStepIndex = globalBeatIndex * subdivision;
             
-            const x = gridStartX + (globalStepIndex * LAYOUT.grid.stepW) + (globalBeatIndex * LAYOUT.grid.beatGap);
+            const x = gridStartX + (globalBeatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
             const y = 100; // Simplified - would need actual row calculation
             
             return { x, y };
@@ -4699,7 +4700,7 @@
             outline.style.display = 'block';
             outline.style.left = position.x + 'px';
             outline.style.top = position.y + 'px';
-            outline.style.width = LAYOUT.grid.stepW + 'px';
+            outline.style.width = LAYOUT.grid.beatWidth + 'px';
             outline.style.height = '60px'; // Row height
         }
 
@@ -4994,15 +4995,49 @@
             const textColumnWidth = pageWidth - 2 * GRID_CONFIG.pageLeftX;
             const gridStartX = GRID_CONFIG.pageLeftX + GRID_CONFIG.nameColumnWidth + GRID_CONFIG.nameGap;
             
-            // Calculate step positions including beatGap
-            function stepLeftX(stepIndex) {
-                const beatIndex = Math.floor(stepIndex / defaultSubdivision);
-                return gridStartX + (stepIndex * LAYOUT.grid.stepW) + (beatIndex * LAYOUT.grid.beatGap);
+            // Calculate step positions with fixed beat width
+            function stepLeftX(stepIndex, instrument) {
+                // If no instrument provided, use default subdivision
+                if (!instrument) {
+                    const beatIndex = Math.floor(stepIndex / defaultSubdivision);
+                    const stepInBeat = stepIndex % defaultSubdivision;
+                    const beatStartX = gridStartX + (beatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                    const stepWidth = LAYOUT.grid.beatWidth / defaultSubdivision;
+                    return beatStartX + (stepInBeat * stepWidth);
+                }
+                
+                // With instrument, handle variable subdivisions per beat
+                let currentStepIndex = 0;
+                let targetBeatIndex = -1;
+                let stepInBeat = 0;
+                let beatSubdivision = defaultSubdivision;
+                
+                // Find which beat contains this step
+                for (let bar = 1; bar <= (instrument.bars || totalBars); bar++) {
+                    for (let beat = 1; beat <= (instrument.beats || beatsPerBar); beat++) {
+                        const beatKey = `${bar}-${beat}`;
+                        beatSubdivision = (instrument.beatSubdivisions && instrument.beatSubdivisions[beatKey]) || 
+                                        instrument.subdivision || defaultSubdivision;
+                        
+                        if (currentStepIndex + beatSubdivision > stepIndex) {
+                            // Found the beat containing this step
+                            targetBeatIndex = (bar - 1) * (instrument.beats || beatsPerBar) + (beat - 1);
+                            stepInBeat = stepIndex - currentStepIndex;
+                            break;
+                        }
+                        currentStepIndex += beatSubdivision;
+                    }
+                    if (targetBeatIndex >= 0) break;
+                }
+                
+                // Calculate position
+                const beatStartX = gridStartX + (targetBeatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                const stepWidth = LAYOUT.grid.beatWidth / beatSubdivision;
+                return beatStartX + (stepInBeat * stepWidth);
             }
             
             function beatEndX(beatIndex) {
-                const stepIndex = (beatIndex + 1) * defaultSubdivision - 1;
-                return stepLeftX(stepIndex) + LAYOUT.grid.stepW;
+                return gridStartX + (beatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap)) + LAYOUT.grid.beatWidth;
             }
             
             function barEndX(barIndex) {
@@ -5011,9 +5046,8 @@
             }
             
             function beatCenterX(beatIndex) {
-                const startStep = beatIndex * defaultSubdivision;
-                const endStep = startStep + defaultSubdivision - 1;
-                return (stepLeftX(startStep) + stepLeftX(endStep) + LAYOUT.grid.stepW) / 2;
+                const beatStartX = gridStartX + (beatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                return beatStartX + (LAYOUT.grid.beatWidth / 2);
             }
             
             return {
@@ -8694,8 +8728,8 @@
             
             console.log(`🎼 Music: ${totalBars} bars × ${beatsPerBar} beats × ${subdivision} subdivision = ${totalSteps} steps`);
             
-            // Calculate bars per line to fit nicely
-            const barWidth = stepsPerBar * layout.cellWidth + layout.barSpacing;
+            // Calculate bars per line to fit nicely with fixed beat width
+            const barWidth = beatsPerBar * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap) + layout.barSpacing;
             const barsPerLine = Math.max(1, Math.floor(layout.availableWidth / barWidth));
             const totalLines = Math.ceil(totalBars / barsPerLine);
             
@@ -8768,8 +8802,8 @@
             ctx.textAlign = 'center';
             
             for (let bar = startBar; bar < endBar; bar++) {
-                const barX = layout.gridStartX + (bar - startBar) * (stepsPerBar * layout.cellWidth + layout.barSpacing);
-                const barWidth = stepsPerBar * layout.cellWidth;
+                const barX = layout.gridStartX + (bar - startBar) * (beatsPerBar * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap) + layout.barSpacing);
+                const barWidth = beatsPerBar * LAYOUT.grid.beatWidth + (beatsPerBar - 1) * LAYOUT.grid.beatGap;
                 ctx.fillText(`${bar + 1}`, barX + barWidth/2, y);
             }
         }
@@ -8782,9 +8816,9 @@
             for (let bar = startBar; bar < endBar; bar++) {
                 for (let beat = 0; beat < beatsPerBar; beat++) {
                     const beatX = layout.gridStartX + 
-                                 (bar - startBar) * (beatsPerBar * subdivision * layout.cellWidth + layout.barSpacing) +
-                                 (beat * subdivision * layout.cellWidth);
-                    const beatWidth = subdivision * layout.cellWidth;
+                                 (bar - startBar) * (beatsPerBar * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap) + layout.barSpacing) +
+                                 (beat * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                    const beatWidth = LAYOUT.grid.beatWidth;
                     ctx.fillText(`${beat + 1}`, beatX + beatWidth/2, y);
                 }
             }
@@ -8800,7 +8834,7 @@
             // Render the EXACT pattern from the instrument
             for (let bar = startBar; bar < endBar; bar++) {
                 const barStartStep = bar * stepsPerBar;
-                const barX = layout.gridStartX + (bar - startBar) * (stepsPerBar * layout.cellWidth + layout.barSpacing);
+                const barX = layout.gridStartX + (bar - startBar) * (beatsPerBar * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap) + layout.barSpacing);
                 
                 // Draw bar lines
                 ctx.strokeStyle = '#000000';
@@ -8813,15 +8847,18 @@
                 // Draw end bar line
                 if (bar === endBar - 1 || (bar + 1) % endBar === 0) {
                     ctx.beginPath();
-                    ctx.moveTo(barX + stepsPerBar * layout.cellWidth, y);
-                    ctx.lineTo(barX + stepsPerBar * layout.cellWidth, y + layout.cellHeight);
+                    ctx.moveTo(barX + beatsPerBar * LAYOUT.grid.beatWidth + (beatsPerBar - 1) * LAYOUT.grid.beatGap, y);
+                    ctx.lineTo(barX + beatsPerBar * LAYOUT.grid.beatWidth + (beatsPerBar - 1) * LAYOUT.grid.beatGap, y + layout.cellHeight);
                     ctx.stroke();
                 }
                 
                 // Draw each step in this bar
                 for (let step = 0; step < stepsPerBar; step++) {
                     const stepIndex = barStartStep + step;
-                    const stepX = barX + (step * layout.cellWidth);
+                    const beatIndex = Math.floor(step / subdivision);
+                    const stepInBeat = step % subdivision;
+                    const stepWidth = LAYOUT.grid.beatWidth / subdivision;
+                    const stepX = barX + beatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap) + stepInBeat * stepWidth;
                     
                     // Get the EXACT step value from the pattern
                     const stepValue = stepIndex < instrument.pattern.length ? instrument.pattern[stepIndex] : '';
@@ -8829,20 +8866,20 @@
                     // Draw cell background
                     if (stepValue) {
                         ctx.fillStyle = '#f0f0f0';
-                        ctx.fillRect(stepX + 1, y + 1, layout.cellWidth - 2, layout.cellHeight - 2);
+                        ctx.fillRect(stepX + 1, y + 1, stepWidth - 2, layout.cellHeight - 2);
                     }
                     
                     // Draw cell border
                     ctx.strokeStyle = '#cccccc';
                     ctx.lineWidth = 1;
-                    ctx.strokeRect(stepX, y, layout.cellWidth, layout.cellHeight);
+                    ctx.strokeRect(stepX, y, stepWidth, layout.cellHeight);
                     
                     // Draw the EXACT note content
                     if (stepValue) {
                         ctx.fillStyle = '#000000';
                         ctx.font = 'bold 16px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText(stepValue, stepX + layout.cellWidth/2, y + layout.cellHeight/2 + 6);
+                        ctx.fillText(stepValue, stepX + stepWidth/2, y + layout.cellHeight/2 + 6);
                     }
                 }
             }
@@ -8919,8 +8956,8 @@
             ctx.textAlign = 'center';
             
             for (let bar = startBar; bar < endBar; bar++) {
-                const barX = layout.gridStartX + (bar - startBar) * (stepsPerBar * layout.cellWidth + layout.barSpacing);
-                const barWidth = stepsPerBar * layout.cellWidth;
+                const barX = layout.gridStartX + (bar - startBar) * (beatsPerBar * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap) + layout.barSpacing);
+                const barWidth = beatsPerBar * LAYOUT.grid.beatWidth + (beatsPerBar - 1) * LAYOUT.grid.beatGap;
                 ctx.fillText(`${bar + 1}`, barX + barWidth/2, y);
             }
         }
@@ -9599,7 +9636,7 @@
                 const instSubdivision = instrument.instSubdivision || section.subdivision || 4;
                 
                 const totalSteps = instBars * instBeats * instSubdivision;
-                const stepWidth = LAYOUT.grid.stepW;
+                const stepWidth = LAYOUT.grid.beatWidth / instSubdivision;
                 
                 // Calculate helper functions for this specific row
                 const rowModel = {
@@ -9611,22 +9648,47 @@
                     totalSteps,
                     stepWidth,
                     
-                    // Position helpers
+                    // Position helpers with fixed beat width
                     stepLeftX: (stepIndex) => {
-                        const beatIndex = Math.floor(stepIndex / instSubdivision);
+                        // Handle variable subdivisions per beat
+                        let currentStepIndex = 0;
+                        let targetBeatIndex = -1;
+                        let stepInBeat = 0;
+                        let beatSubdivision = instSubdivision;
+                        
+                        // Find which beat contains this step
+                        for (let bar = 1; bar <= instBars; bar++) {
+                            for (let beat = 1; beat <= instBeats; beat++) {
+                                const beatKey = `${bar}-${beat}`;
+                                beatSubdivision = (instrument.beatSubdivisions && instrument.beatSubdivisions[beatKey]) || instSubdivision;
+                                
+                                if (currentStepIndex + beatSubdivision > stepIndex) {
+                                    // Found the beat containing this step
+                                    targetBeatIndex = (bar - 1) * instBeats + (beat - 1);
+                                    stepInBeat = stepIndex - currentStepIndex;
+                                    break;
+                                }
+                                currentStepIndex += beatSubdivision;
+                            }
+                            if (targetBeatIndex >= 0) break;
+                        }
+                        
+                        // Calculate position with fixed beat width
                         const baseX = LAYOUT.grid.pageLeftX + LAYOUT.grid.nameCol + LAYOUT.grid.beatGap;
-                        return baseX + (stepIndex * stepWidth) + (beatIndex * LAYOUT.grid.beatGap);
+                        const beatStartX = baseX + (targetBeatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                        const beatStepWidth = LAYOUT.grid.beatWidth / beatSubdivision;
+                        return beatStartX + (stepInBeat * beatStepWidth);
                     },
                     
                     beatEndX: (beatIndex) => {
-                        const stepIndex = (beatIndex + 1) * instSubdivision - 1;
-                        return rowModel.stepLeftX(stepIndex) + stepWidth;
+                        const baseX = LAYOUT.grid.pageLeftX + LAYOUT.grid.nameCol + LAYOUT.grid.beatGap;
+                        return baseX + (beatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap)) + LAYOUT.grid.beatWidth;
                     },
                     
                     beatCenterX: (beatIndex) => {
-                        const startStep = beatIndex * instSubdivision;
-                        const endStep = startStep + instSubdivision - 1;
-                        return (rowModel.stepLeftX(startStep) + rowModel.stepLeftX(endStep) + stepWidth) / 2;
+                        const baseX = LAYOUT.grid.pageLeftX + LAYOUT.grid.nameCol + LAYOUT.grid.beatGap;
+                        const beatStartX = baseX + (beatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                        return beatStartX + (LAYOUT.grid.beatWidth / 2);
                     },
                     
                     barEndX: (barIndex) => {
@@ -12712,7 +12774,7 @@ ${elements.join('\n')}
             // Draw grid cells for this segment
             for (let stepIndex = startStep; stepIndex <= endStep; stepIndex++) {
                 const stepValue = instrument.pattern[stepIndex] || '';
-                const x = layout.stepLeftX(stepIndex);
+                const x = layout.stepLeftX(stepIndex, instrument);
                 
                 // Step background
                 ctx.fillStyle = stepValue ? GRID_CONFIG.stepBackgroundActive : GRID_CONFIG.stepBackgroundInactive;
@@ -12738,7 +12800,7 @@ ${elements.join('\n')}
                 // Beat border (thick line on left side of first step of beat)
                 const firstStepOfBeat = beatIndex * subdivision;
                 if (firstStepOfBeat >= startStep && firstStepOfBeat <= endStep) {
-                    const x = layout.stepLeftX(firstStepOfBeat);
+                    const x = layout.stepLeftX(firstStepOfBeat, instrument);
                     ctx.strokeStyle = GRID_CONFIG.thickLineColor;
                     ctx.lineWidth = GRID_CONFIG.thickLineWidth;
                     ctx.beginPath();
@@ -12878,26 +12940,58 @@ ${elements.join('\n')}
                 cursorY += font.size + 16;
             }
             
-            // Calculate grid layout with new LAYOUT values
+            // Calculate grid layout with fixed beat width
             const gridStartX = LAYOUT.grid.pageLeftX + LAYOUT.grid.nameCol + LAYOUT.grid.beatGap;
-            const stepWidth = LAYOUT.grid.stepW;
+            const stepWidth = LAYOUT.grid.beatWidth / subdivision;
             const rowHeight = 60; // Could be made configurable
             
-            // Helper functions using new LAYOUT
-            function stepLeftX(stepIndex) {
-                const beatIndex = Math.floor(stepIndex / subdivision);
-                return gridStartX + (stepIndex * stepWidth) + (beatIndex * LAYOUT.grid.beatGap);
+            // Helper functions with fixed beat width
+            function stepLeftX(stepIndex, instrument) {
+                // If no instrument provided, use default subdivision
+                if (!instrument) {
+                    const beatIndex = Math.floor(stepIndex / subdivision);
+                    const stepInBeat = stepIndex % subdivision;
+                    const beatStartX = gridStartX + (beatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                    return beatStartX + (stepInBeat * stepWidth);
+                }
+                
+                // With instrument, handle variable subdivisions per beat
+                let currentStepIndex = 0;
+                let targetBeatIndex = -1;
+                let stepInBeat = 0;
+                let beatSubdivision = subdivision;
+                
+                // Find which beat contains this step
+                for (let bar = 1; bar <= (instrument.bars || bars); bar++) {
+                    for (let beat = 1; beat <= (instrument.beats || beats); beat++) {
+                        const beatKey = `${bar}-${beat}`;
+                        beatSubdivision = (instrument.beatSubdivisions && instrument.beatSubdivisions[beatKey]) || 
+                                        instrument.subdivision || subdivision;
+                        
+                        if (currentStepIndex + beatSubdivision > stepIndex) {
+                            // Found the beat containing this step
+                            targetBeatIndex = (bar - 1) * (instrument.beats || beats) + (beat - 1);
+                            stepInBeat = stepIndex - currentStepIndex;
+                            break;
+                        }
+                        currentStepIndex += beatSubdivision;
+                    }
+                    if (targetBeatIndex >= 0) break;
+                }
+                
+                // Calculate position
+                const beatStartX = gridStartX + (targetBeatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                const beatStepWidth = LAYOUT.grid.beatWidth / beatSubdivision;
+                return beatStartX + (stepInBeat * beatStepWidth);
             }
             
             function beatEndX(beatIndex) {
-                const stepIndex = (beatIndex + 1) * subdivision - 1;
-                return stepLeftX(stepIndex) + stepWidth;
+                return gridStartX + (beatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap)) + LAYOUT.grid.beatWidth;
             }
             
             function beatCenterX(beatIndex) {
-                const startStep = beatIndex * subdivision;
-                const endStep = startStep + subdivision - 1;
-                return (stepLeftX(startStep) + stepLeftX(endStep) + stepWidth) / 2;
+                const beatStartX = gridStartX + (beatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                return beatStartX + (LAYOUT.grid.beatWidth / 2);
             }
             
             function barEndX(barIndex) {
@@ -13001,9 +13095,13 @@ ${elements.join('\n')}
             
             for (let bar = startBar; bar < endBar; bar++) {
                 for (let beat = 0; beat < beatsPerBar; beat++) {
+                    const absoluteBeatIndex = bar * beatsPerBar + beat;
+                    const beatStartX = helpers.gridStartX + (absoluteBeatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
+                    
                     for (let step = 0; step < subdivision; step++) {
-                        const stepIndex = bar * beatsPerBar * subdivision + beat * subdivision + step;
-                        const x = helpers.stepLeftX(stepIndex);
+                        // Position subdivisions uniformly within the fixed beat width
+                        const stepWidth = LAYOUT.grid.beatWidth / subdivision;
+                        const x = beatStartX + (step * stepWidth);
                         
                         ctx.beginPath();
                         ctx.moveTo(x + 0.5, gridTopY);
@@ -13019,8 +13117,9 @@ ${elements.join('\n')}
             
             for (let bar = startBar; bar < endBar; bar++) {
                 for (let beat = 0; beat < beatsPerBar; beat++) {
-                    const stepIndex = bar * beatsPerBar * subdivision + beat * subdivision;
-                    const x = helpers.stepLeftX(stepIndex);
+                    // Calculate beat position directly, not via step index
+                    const absoluteBeatIndex = bar * beatsPerBar + beat;
+                    const x = helpers.gridStartX + (absoluteBeatIndex * (LAYOUT.grid.beatWidth + LAYOUT.grid.beatGap));
                     
                     ctx.beginPath();
                     ctx.moveTo(x + 0.5, gridTopY);
@@ -13076,7 +13175,7 @@ ${elements.join('\n')}
                         const stepValue = instrument.steps[globalStepIndex];
                         
                         if (stepValue) {
-                            const x = helpers.stepLeftX(globalStepIndex);
+                            const x = helpers.stepLeftX(globalStepIndex, instrument);
                             renderStepSymbol(ctx, stepValue, x, y + 30, LAYOUT.grid.stepW);
                         }
                     }
@@ -13270,7 +13369,7 @@ ${elements.join('\n')}
                             const stepIndex = (bar * layout.beatsPerBar * subdivision) + (beat * subdivision) + sub;
                             const stepValue = instrument.pattern[stepIndex];
                             
-                            const x = layout.stepLeftX(stepIndex);
+                            const x = layout.stepLeftX(stepIndex, instrument);
                             const y = cursorY;
                             
                             // Step background
@@ -13290,7 +13389,7 @@ ${elements.join('\n')}
                     for (let beat = 0; beat < layout.beatsPerBar; beat++) {
                         const globalBeatIndex = bar * layout.beatsPerBar + beat;
                         const firstStepOfBeat = globalBeatIndex * layout.defaultSubdivision;
-                        const x = layout.stepLeftX(firstStepOfBeat);
+                        const x = layout.stepLeftX(firstStepOfBeat, instrument);
                         
                         ctx.strokeStyle = GRID_CONFIG.thickLineColor;
                         ctx.lineWidth = GRID_CONFIG.thickLineWidth;
@@ -13322,7 +13421,7 @@ ${elements.join('\n')}
                             const stepValue = instrument.pattern[stepIndex];
                             
                             if (stepValue) {
-                                const x = layout.stepLeftX(stepIndex);
+                                const x = layout.stepLeftX(stepIndex, instrument);
                                 const y = cursorY;
                                 
                                 ctx.fillStyle = '#000000';
