@@ -1,0 +1,272 @@
+/* TROMKLUB Machine - Main Stylesheet */
+
+/* ===== Base Styles ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1e1e2e, #2d2d44);
+    color: #ffffff;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===== Layout Components ===== */
+.full-width-section {
+    width: 100%;
+    padding: 0 20px;
+}
+
+.main-container {
+    display: flex;
+    flex: 1;
+}
+
+.content-area {
+    flex: 1;
+    padding: 20px;
+}
+
+/* ===== Header ===== */
+.header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(78, 205, 196, 0.2);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.header h1 {
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 2.2em;
+    margin-bottom: 8px;
+}
+
+/* ===== Control Bars ===== */
+.function-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    flex-wrap: wrap;
+    border: 2px solid rgba(78, 205, 196, 0.3);
+}
+
+.function-bar h3 {
+    color: #4ecdc4;
+    margin-right: 15px;
+    font-size: 14px;
+}
+
+.controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    flex-wrap: wrap;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.control-group label {
+    font-weight: 500;
+    color: #b8b8b8;
+}
+
+/* ===== Form Inputs ===== */
+input[type="number"] {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: white;
+    padding: 8px 12px;
+    width: 80px;
+}
+
+input[type="file"] {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: white;
+    padding: 8px 12px;
+}
+
+/* ===== Buttons ===== */
+.btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    font-size: 12px;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Button Variants */
+.btn-add {
+    background: linear-gradient(135deg, #56ab2f, #a8e6cf);
+    color: #2d2d44;
+    font-size: 18px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-undo {
+    background: linear-gradient(135deg, #ff9500, #ff6b35);
+}
+
+.btn-redo {
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
+}
+
+.btn-save {
+    background: linear-gradient(135deg, #00d4aa, #4ecdc4);
+}
+
+.btn-clear {
+    background: linear-gradient(135deg, #ff4757, #ff3838);
+}
+
+.btn-copy {
+    background: linear-gradient(135deg, #ffa726, #fb8c00);
+}
+
+.btn-cut {
+    background: linear-gradient(135deg, #ef5350, #f44336);
+}
+
+.btn-paste {
+    background: linear-gradient(135deg, #66bb6a, #4caf50);
+}
+
+.btn-export {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+}
+
+.btn-image {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+
+.btn-song {
+    background: linear-gradient(135deg, #a8edea, #fed6e3);
+    color: #2d2d44;
+}
+
+/* ===== Main Sequencer Container ===== */
+.sequencer-container {
+    display: flex;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 15px;
+    backdrop-filter: blur(10px);
+    margin-bottom: 15px;
+    height: 85vh;
+    overflow: hidden;
+}
+
+/* ===== Section Info ===== */
+.current-section-info {
+    background: rgba(78, 205, 196, 0.1);
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border-left: 4px solid #4ecdc4;
+}
+
+.current-section-info h3 {
+    color: #4ecdc4;
+    margin-bottom: 5px;
+    font-size: 16px;
+}
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1.1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1.1); }
+}
+
+@keyframes flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* ===== Utility Classes ===== */
+.hidden {
+    display: none;
+}
+
+.active {
+    background: rgba(78, 205, 196, 0.3);
+    border-color: #4ecdc4;
+}
+
+/* ===== Scrollbar Styling ===== */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(78, 205, 196, 0.5);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(78, 205, 196, 0.8);
+}
