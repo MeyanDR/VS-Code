@@ -1347,17 +1347,17 @@
             float: right; 
         }
         
-        .export-overlay .panel-section:hover {
+        .panel-section:hover {
             background: rgba(255, 255, 255, 0.05);
             border-color: rgba(78, 205, 196, 0.3);
         }
         
-        .export-overlay .panel-section.active {
+        .panel-section.active {
             border-color: #4ecdc4;
             background: rgba(78, 205, 196, 0.1);
         }
         
-        .export-overlay .panel-section h3 {
+        .panel-section h3 {
             color: #4ecdc4;
             font-size: 16px;
             margin: 0 0 12px 0;
@@ -1366,12 +1366,12 @@
             gap: 8px;
         }
         
-        .export-overlay .icon {
+        .icon {
             font-size: 18px;
         }
 
         /* New panel control styles - Grid based layout */
-        .export-overlay .control-row {
+        .control-row {
             display: grid;
             grid-template-columns: 140px 1fr;
             column-gap: 12px;
@@ -1379,7 +1379,7 @@
             margin-bottom: 12px;
         }
 
-        .export-overlay .control-row label {
+        .control-row label {
             color: #e0e0e0;
             font-size: 13px;
             white-space: nowrap;
@@ -1388,20 +1388,20 @@
             min-width: 0;
         }
 
-        .export-overlay .control-row input[type="range"] {
+        .control-row input[type="range"] {
             width: 100%;
             min-width: 0;
             max-width: 100%;
             margin: 0;
         }
 
-        .export-overlay .control-row select {
+        .control-row select {
             width: 100%;
             min-width: 0;
             max-width: 100%;
         }
 
-        .export-overlay .control-row .slider-container {
+        .control-row .slider-container {
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1409,12 +1409,12 @@
             max-width: 100%;
         }
 
-        .export-overlay .control-row .slider-container input[type="range"] {
+        .control-row .slider-container input[type="range"] {
             flex: 1;
             min-width: 0;
         }
 
-        .export-overlay .value-display {
+        .value-display {
             color: #4ecdc4;
             font-size: 12px;
             font-weight: bold;
@@ -1423,13 +1423,13 @@
             flex-shrink: 0;
         }
 
-        .export-overlay .toggle-row {
+        .toggle-row {
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
 
-        .export-overlay .toggle-row label {
+        .toggle-row label {
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1438,13 +1438,13 @@
             cursor: pointer;
         }
 
-        .export-overlay .radio-group {
+        .radio-group {
             display: flex;
             flex-direction: column;
             gap: 6px;
         }
 
-        .export-overlay .radio-group label {
+        .radio-group label {
             display: flex;
             align-items: center;
             gap: 6px;
@@ -1453,28 +1453,28 @@
             cursor: pointer;
         }
 
-        .export-overlay .theme-actions, .export-overlay .apply-actions, .export-overlay .break-actions {
+        .theme-actions, .apply-actions, .break-actions {
             display: flex;
             gap: 8px;
             margin-top: 12px;
         }
-        .export-overlay .break-controls {
+        .break-controls {
             display: flex;
             flex-direction: column;
             gap: 12px;
         }
-        .export-overlay .break-add-controls {
+        .break-add-controls {
             display: flex;
             gap: 8px;
             align-items: center;
         }
-        .export-overlay .break-add-controls label {
+        .break-add-controls label {
             font-size: 12px;
             color: #e0e0e0;
             margin-right: 4px;
         }
 
-        .export-overlay .modern-btn.small {
+        .modern-btn.small {
             padding: 6px 12px;
             font-size: 12px;
             background: rgba(78, 205, 196, 0.2);
@@ -1485,12 +1485,12 @@
             transition: all 0.2s ease;
         }
 
-        .export-overlay .modern-btn.small:hover {
+        .modern-btn.small:hover {
             background: rgba(78, 205, 196, 0.3);
             border-color: #4ecdc4;
         }
 
-        .export-overlay .break-list {
+        .break-list {
             max-height: 150px;
             overflow-y: auto;
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1815,7 +1815,7 @@
         }
         
         /* Radio Group */
-        .export-overlay .radio-group {
+        .radio-group {
             display: flex;
             flex-direction: column;
             gap: 6px;
@@ -2517,55 +2517,6 @@
     </style>
     <!-- Add jsPDF CDN for PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
-    <!-- Load modular JavaScript before everything else -->
-    <script type="module" src="js/compat.js"></script>
-    
-    <!-- Emergency compatibility fixes -->
-    <script>
-        // Define critical globals immediately to prevent errors
-        window.GRID_CONFIG = {
-            stepSize: 25,
-            rowHeight: 60,
-            beatGap: 15,
-            nameWidth: 120,
-            leftMargin: 80
-        };
-        
-        // Initialize empty sections object
-        window.sections = {
-            intro: {
-                name: "Intro",
-                bars: 4,
-                beats: 4,
-                subdivision: 4,
-                instruments: [
-                    { id: 1, name: "Kick", steps: {} },
-                    { id: 2, name: "Snare", steps: {} },
-                    { id: 3, name: "HiHat", steps: {} }
-                ],
-                notes: ""
-            }
-        };
-        
-        window.currentSectionId = 'intro';
-        window.projectName = 'Untitled Project';
-        
-        // Emergency stub functions to prevent errors
-        window.getCurrentSection = function() {
-            return window.sections[window.currentSectionId] || window.sections['intro'];
-        };
-        
-        window.updateGrid = window.updateGrid || function() {
-            console.log('updateGrid called - will be replaced by modules');
-        };
-        
-        window.renderSequencer = window.renderSequencer || function() {
-            console.log('renderSequencer called - will be replaced by modules');
-        };
-        
-        console.log('Emergency compatibility layer loaded');
-    </script>
 </head>
 <body>
     <!-- 1. TITLE BAR - Full width -->
@@ -3489,33 +3440,343 @@
             </div>
         </div>
     </div>
-    <!-- Module Imports -->
-    <script type="module">
-        // Import modules
-        import * as Core from './js/core.js';
-        import * as Renderer from './js/renderer.js';
-        import * as UI from './js/ui.js';
-        import * as Utils from './js/utils.js';
-        
-        // Attach to window for backward compatibility
-        Core.attachToWindow();
-        Renderer.attachToWindow();
-        UI.attachToWindow();
-        Utils.attachToWindow();
-        
-        console.log('✅ All modules loaded successfully');
-    </script>
-    
     <script>
         // ==========================================
-        // LEGACY COMPATIBILITY & REMAINING FUNCTIONS
+        // SHARED CONFIGURATION OBJECT
         // ==========================================
         
-        // LAYOUT and GRID_CONFIG are now imported from modules
-        // These will be available via Core module
+        // COMPREHENSIVE LAYOUT CONFIGURATION OBJECT - SINGLE SOURCE OF TRUTH
+        const LAYOUT = {
+            grid: {
+                // Core dimensions
+                stepW: 35,
+                beatGap: 2,
+                nameCol: 110,
+                rowGap: 8,
+                
+                // System spacing
+                systemSpacing: 32,
+                
+                // Bars per line constraints
+                barsPerLineMin: 0, // 0 means unlimited
+                barsPerLineMax: 0, // 0 means unlimited
+                
+                // Line strokes
+                strokeThin: 1,
+                strokeBeat: 2,
+                strokeBar: 3,
+                
+                // Label positioning
+                labelOffsetBeats: 12,
+                labelOffsetBars: 6,
+                
+                // Section spacing (for Full song scope)
+                sectionGap: 24,
+                
+                // Legacy compatibility - will be removed
+                pageLeftX: 40,
+                pageRightX: 40,
+                nameColumnWidth: 110, // maps to nameCol
+                nameGap: 10,
+                stepSize: 30, // maps to stepW
+                rowHeight: 60,
+                blockSpacing: 12,
+                barHeaderBeatSpacing: 8,
+                beatGridSpacing: 12,
+                thinLineWidth: 1, // maps to strokeThin
+                thickLineWidth: 2, // maps to strokeBeat
+                barLineWidth: 3, // maps to strokeBar
+                
+                // Colors
+                thinLineColor: '#dddddd',
+                thickLineColor: '#333333',
+                stepBackgroundActive: '#f8f9fa',
+                stepBackgroundInactive: '#ffffff'
+            },
+            
+            page: {
+                size: 'A4',
+                orientation: 'portrait',
+                width: 1270,  // 794 * 1.6 for better visibility
+                height: 1797  // 1123 * 1.6 for better visibility
+            },
+            
+            fonts: {
+                title: { family: 'Helvetica', size: 24, weight: 'bold', style: 'normal' },
+                subtitle: { family: 'Helvetica', size: 14, weight: 'normal', style: 'normal' },
+                instrumentName: { family: 'Helvetica', size: 12, weight: 'bold', style: 'normal' },
+                beatLabel: { family: 'Helvetica', size: 10, weight: 'normal', style: 'normal' },
+                barNumber: { family: 'Helvetica', size: 10, weight: 'bold', style: 'normal' },
+                subdivisionLabel: { family: 'Helvetica', size: 8, weight: 'normal', style: 'normal' },
+                legend: { family: 'Helvetica', size: 9, weight: 'normal', style: 'normal' }
+            }
+        };
 
-        // Most configuration, UI functions, themes, and layout are now in modules
-        // THEMES and LAYOUT are imported from Core module
+        // Maintain backwards compatibility with existing code
+        const GRID_CONFIG = LAYOUT.grid;
+
+        // Initialize with proper defaults (will be called after THEMES is defined)
+        function initializeLayoutDefaults() {
+            // Set default page size
+            updatePageSize('A4', 'portrait');
+            
+            // Apply Modern Sans theme as default
+            const modernTheme = THEMES['modern-sans'];
+            Object.assign(LAYOUT.fonts, modernTheme.fonts);
+            Object.assign(LAYOUT.grid, modernTheme.grid);
+        }
+
+        // Export state for modal controls
+        let exportState = {
+            scope: 'section', // 'song' or 'section'
+            sectionId: null,
+            show: {
+                barNumbers: true,
+                beatNumbers: true,
+                subdivisionNumbers: false,
+                legend: true
+            },
+            locked: false,
+            selectedBeat: { barIndex: 0, beatIndex: 0 },
+            visibleBreaks: [],
+            uiPanels: {
+                scope: true,
+                theme: false,
+                layout: false,
+                page: false,
+                guides: false,
+                apply: false,
+                breaks: false,
+                shortcuts: false
+            }
+        };
+
+        // Central export layout object for UI control binding
+        window.exportLayout = {};
+        
+        // Debounced rendering scheduler
+        let renderScheduled = false;
+        function schedulePreviewRender() {
+            if (renderScheduled) return;
+            renderScheduled = true;
+            requestAnimationFrame(() => {
+                renderScheduled = false;
+                // Copy values from exportLayout to LAYOUT if needed
+                syncExportLayoutToLayout();
+                // Render the preview
+                renderExportPreview();
+            });
+        }
+        
+        // Sync exportLayout changes to main LAYOUT object
+        function syncExportLayoutToLayout() {
+            Object.keys(window.exportLayout).forEach(key => {
+                const value = window.exportLayout[key];
+                switch (key) {
+                    case 'textScale':
+                        // Update all fonts proportionally
+                        const factor = value / 100;
+                        Object.keys(LAYOUT.fonts).forEach(fontKey => {
+                            const originalSize = THEMES['modern-sans'].fonts[fontKey]?.size || LAYOUT.fonts[fontKey].size;
+                            LAYOUT.fonts[fontKey].size = Math.round(originalSize * factor);
+                        });
+                        break;
+                    case 'systemSpacing':
+                        LAYOUT.grid.systemSpacing = parseInt(value);
+                        break;
+                    case 'barsPerLineMin':
+                        LAYOUT.grid.barsPerLineMin = parseInt(value);
+                        break;
+                    case 'barsPerLineMax':
+                        LAYOUT.grid.barsPerLineMax = parseInt(value);
+                        break;
+                    case 'cellWidth':
+                        LAYOUT.grid.stepW = parseInt(value);
+                        LAYOUT.grid.stepSize = parseInt(value);
+                        break;
+                    case 'beatGap':
+                        LAYOUT.grid.beatGap = parseInt(value);
+                        break;
+                    case 'nameColumn':
+                        LAYOUT.grid.nameCol = parseInt(value);
+                        LAYOUT.grid.nameColumnWidth = parseInt(value);
+                        break;
+                    case 'strokeThin':
+                        LAYOUT.grid.strokeThin = parseFloat(value);
+                        LAYOUT.grid.thinLineWidth = parseFloat(value);
+                        break;
+                    case 'strokeBeat':
+                        LAYOUT.grid.strokeBeat = parseFloat(value);
+                        LAYOUT.grid.thickLineWidth = parseFloat(value);
+                        break;
+                    case 'strokeBar':
+                        LAYOUT.grid.strokeBar = parseFloat(value);
+                        LAYOUT.grid.barLineWidth = parseFloat(value);
+                        break;
+                    case 'labelOffsetBeats':
+                        LAYOUT.grid.labelOffsetBeats = parseInt(value);
+                        break;
+                    case 'labelOffsetBars':
+                        LAYOUT.grid.labelOffsetBars = parseInt(value);
+                        break;
+                    case 'sectionGap':
+                        LAYOUT.grid.sectionGap = parseInt(value);
+                        break;
+                    case 'showBarNumbers':
+                        exportState.show.barNumbers = value;
+                        break;
+                    case 'showBeatNumbers':
+                        exportState.show.beatNumbers = value;
+                        break;
+                    case 'showSubdivisionNumbers':
+                        exportState.show.subdivisionNumbers = value;
+                        break;
+                    case 'showLegend':
+                        exportState.show.legend = value;
+                        break;
+                    case 'pageSize':
+                        const orientation = document.getElementById('pageOrientation')?.value || 'portrait';
+                        updatePageSize(value, orientation);
+                        break;
+                    case 'orientation':
+                        const pageSize = document.getElementById('pageSize')?.value || 'A4';
+                        updatePageSize(pageSize, value);
+                        break;
+                }
+            });
+        }
+
+        // Central event handler for all control changes
+        function handleControlChange(event) {
+            const element = event.target;
+            const key = element.dataset.layoutKey || element.id || element.name;
+            if (!key) return;
+
+            let value;
+            if (element.type === 'range' || element.type === 'number') {
+                value = parseFloat(element.value);
+            } else if (element.type === 'checkbox') {
+                value = element.checked;
+            } else {
+                value = element.value;
+            }
+
+            // Update the central layout object
+            window.exportLayout[key] = value;
+            
+            // Update display value if element has a value display
+            const valueDisplay = document.getElementById(key + 'Value');
+            if (valueDisplay && (element.type === 'range' || element.type === 'number')) {
+                const unit = element.dataset.unit || (key.includes('stroke') ? 'px' : 
+                             key.includes('scale') ? '%' : 'px');
+                valueDisplay.textContent = value + unit;
+            }
+
+            // Schedule render
+            schedulePreviewRender();
+        }
+
+        // Page size calculations
+        function calculatePageDimensions(size, orientation) {
+            const sizes = {
+                'A4': { width: 1270, height: 1797 },  // 794*1.6, 1123*1.6
+                'A3': { width: 1797, height: 2539 },  // scaled up proportionally
+                'Letter': { width: 1306, height: 1690 }  // scaled up proportionally
+            };
+            
+            let dims = sizes[size] || sizes['A4'];
+            if (orientation === 'landscape') {
+                return { width: dims.height, height: dims.width };
+            }
+            return dims;
+        }
+
+        function updatePageSize(size, orientation) {
+            const dims = calculatePageDimensions(size, orientation);
+            LAYOUT.page.size = size;
+            LAYOUT.page.orientation = orientation;
+            LAYOUT.page.width = dims.width;
+            LAYOUT.page.height = dims.height;
+        }
+
+        // Theme definitions
+        const THEMES = {
+            'classic-engraved': {
+                fonts: {
+                    title: { family: 'Times New Roman', size: 26, weight: 'bold', style: 'normal' },
+                    subtitle: { family: 'Georgia', size: 14, weight: 'normal', style: 'normal' },
+                    instrumentName: { family: 'Times New Roman', size: 12, weight: 'bold', style: 'normal' },
+                    beatLabel: { family: 'Times New Roman', size: 10, weight: 'normal', style: 'normal' },
+                    barNumber: { family: 'Times New Roman', size: 10, weight: 'bold', style: 'normal' },
+                    subdivisionLabel: { family: 'Times New Roman', size: 8, weight: 'normal', style: 'normal' },
+                    legend: { family: 'Times New Roman', size: 9, weight: 'normal', style: 'normal' }
+                },
+                grid: { strokeThin: 1, strokeBeat: 2, strokeBar: 2 }
+            },
+            'modern-sans': {
+                fonts: {
+                    title: { family: 'Helvetica', size: 24, weight: 'bold', style: 'normal' },
+                    subtitle: { family: 'Arial', size: 14, weight: 'normal', style: 'normal' },
+                    instrumentName: { family: 'Helvetica', size: 12, weight: 'bold', style: 'normal' },
+                    beatLabel: { family: 'Helvetica', size: 10, weight: 'normal', style: 'normal' },
+                    barNumber: { family: 'Helvetica', size: 10, weight: 'bold', style: 'normal' },
+                    subdivisionLabel: { family: 'Helvetica', size: 8, weight: 'normal', style: 'normal' },
+                    legend: { family: 'Helvetica', size: 9, weight: 'normal', style: 'normal' }
+                },
+                grid: { strokeThin: 1, strokeBeat: 2, strokeBar: 3 }
+            },
+            'jazz-lead': {
+                fonts: {
+                    title: { family: 'Futura', size: 28, weight: 'bold', style: 'italic' },
+                    subtitle: { family: 'Arial Rounded MT Bold', size: 14, weight: 'normal', style: 'italic' },
+                    instrumentName: { family: 'Futura', size: 12, weight: 'bold', style: 'normal' },
+                    beatLabel: { family: 'Futura', size: 10, weight: 'normal', style: 'normal' },
+                    barNumber: { family: 'Futura', size: 10, weight: 'bold', style: 'normal' },
+                    subdivisionLabel: { family: 'Futura', size: 8, weight: 'normal', style: 'normal' },
+                    legend: { family: 'Futura', size: 9, weight: 'normal', style: 'normal' }
+                },
+                grid: { strokeThin: 1, strokeBeat: 2, strokeBar: 2 }
+            },
+            'minimal-mono': {
+                fonts: {
+                    title: { family: 'Courier New', size: 22, weight: 'bold', style: 'normal' },
+                    subtitle: { family: 'Courier New', size: 12, weight: 'normal', style: 'normal' },
+                    instrumentName: { family: 'Courier New', size: 11, weight: 'bold', style: 'normal' },
+                    beatLabel: { family: 'Courier New', size: 9, weight: 'normal', style: 'normal' },
+                    barNumber: { family: 'Courier New', size: 9, weight: 'bold', style: 'normal' },
+                    subdivisionLabel: { family: 'Courier New', size: 8, weight: 'normal', style: 'normal' },
+                    legend: { family: 'Courier New', size: 8, weight: 'normal', style: 'normal' }
+                },
+                grid: { strokeThin: 0.75, strokeBeat: 2, strokeBar: 2 }
+            },
+            'studio-note': {
+                fonts: {
+                    title: { family: 'Verdana', size: 24, weight: 'bold', style: 'normal' },
+                    subtitle: { family: 'Segoe UI', size: 14, weight: 'normal', style: 'normal' },
+                    instrumentName: { family: 'Verdana', size: 13, weight: 'bold', style: 'normal' },
+                    beatLabel: { family: 'Verdana', size: 11, weight: 'normal', style: 'normal' },
+                    barNumber: { family: 'Verdana', size: 11, weight: 'bold', style: 'normal' },
+                    subdivisionLabel: { family: 'Verdana', size: 9, weight: 'normal', style: 'normal' },
+                    legend: { family: 'Verdana', size: 10, weight: 'normal', style: 'normal' }
+                },
+                grid: { strokeThin: 1, strokeBeat: 2, strokeBar: 2.5 }
+            },
+            'print-heavy': {
+                fonts: {
+                    title: { family: 'Helvetica Neue', size: 26, weight: 'bold', style: 'normal' },
+                    subtitle: { family: 'Helvetica Neue', size: 15, weight: 'normal', style: 'normal' },
+                    instrumentName: { family: 'Helvetica Neue', size: 13, weight: 'bold', style: 'normal' },
+                    beatLabel: { family: 'Helvetica Neue', size: 11, weight: 'bold', style: 'normal' },
+                    barNumber: { family: 'Helvetica Neue', size: 11, weight: 'bold', style: 'normal' },
+                    subdivisionLabel: { family: 'Helvetica Neue', size: 9, weight: 'bold', style: 'normal' },
+                    legend: { family: 'Helvetica Neue', size: 10, weight: 'bold', style: 'normal' }
+                },
+                grid: { strokeThin: 1, strokeBeat: 2, strokeBar: 3 }
+            }
+        };
+
+        // Initialize defaults now that THEMES is defined
+        initializeLayoutDefaults();
 
         // Export modal event handlers
         function updateScope() {
@@ -4606,6 +4867,11 @@
                         // Redo
                         redoAction();
                     }
+                    break;
+                    
+                case 'Escape':
+                    event.preventDefault();
+                    closeExportModal();
                     break;
             }
         }
@@ -8171,10 +8437,14 @@
             // Initialize the new centralized UI system
             initExportUI();
             
+            // Setup canvas interaction for beat selection and keyboard shortcuts
+            setupCanvasInteraction();
+            
             // RENDER THE SEQUENCE FIRST - this is what you need to see!
             console.log('🎵 Rendering sequence...');
             try {
                 renderExportPreview();
+                renderSelectionOutline(); // Ensure beat selection is shown
                 console.log('✅ Sequence rendered successfully!');
             } catch (e) {
                 console.error('❌ Failed to render sequence:', e);
@@ -8234,11 +8504,22 @@
         // Enhanced zoom controls
         function adjustZoom(delta) {
             const slider = document.getElementById('zoom-slider');
-            if (slider) {
+            const canvas = document.getElementById('exportPreviewCanvas');
+            const display = document.getElementById('zoomLevel');
+            
+            if (slider && canvas && display) {
                 const currentZoom = parseFloat(slider.value);
                 const newZoom = Math.max(0.3, Math.min(3.0, currentZoom + delta));
                 slider.value = newZoom;
-                setZoom(newZoom);
+                
+                // DIRECT canvas zoom
+                canvas.style.transform = 'scale(' + newZoom + ')';
+                canvas.style.transformOrigin = 'top left';
+                
+                // Update display
+                display.textContent = Math.round(newZoom * 100) + '%';
+                
+                console.log('🔍 Zoom changed to:', Math.round(newZoom * 100) + '%');
             }
         }
         
@@ -8329,9 +8610,28 @@
             ctx.fillStyle = '#fff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Get the EXACT same section data as the main program
-            const section = getCurrentSection();
+            // Initialize exportRuntime for geometry tracking
+            window.exportRuntime = {
+                pageRect: { x: 0, y: 0, width: canvas.width, height: canvas.height },
+                scale: 1.0,
+                systems: [],
+                instruments: [],
+                beats: [],
+                bars: [],
+                elements: new Map()
+            };
+            
+            // Get the raw section data
+            const rawSection = getCurrentSection();
+            if (!rawSection) {
+                renderEmptySheet(ctx, canvas);
+                return;
+            }
+            
+            // NORMALIZE DATA before rendering
+            const section = normalizeDataForRender(rawSection);
             if (!section) {
+                console.error('❌ Data normalization failed');
                 renderEmptySheet(ctx, canvas);
                 return;
             }
@@ -8626,11 +8926,17 @@
         }
         
         function renderBreak2Layout(ctx, canvas, section, instruments) {
-            console.log('🎯 RENDERING EXACT A4 Break 2.jpeg LAYOUT');
+            console.log('🎯 RENDERING EXACT A4 Break 2.jpeg LAYOUT with geometry tracking');
             
             // A4 DIMENSIONS - 1270x1797 pixels (1.6x scale for better visibility)
             canvas.width = 1270;  // 794 * 1.6
             canvas.height = 1797; // 1123 * 1.6
+            
+            // Update exportRuntime page dimensions
+            if (window.exportRuntime) {
+                window.exportRuntime.pageRect = { x: 0, y: 0, width: canvas.width, height: canvas.height };
+                window.exportRuntime.scale = 1.6; // Track the scale factor
+            }
             
             // A4 margins and positioning (scaled 1.6x)
             const margin = 64;                    // 40 * 1.6
@@ -8781,9 +9087,35 @@
                     currentBarX = barStartX + stepsPerBar * cellW + (beats - 1) * beatGap;
                 }
                 
+                // GEOMETRY TRACKING: Record system info
+                if (window.exportRuntime) {
+                    window.exportRuntime.systems.push({
+                        line: line,
+                        startBar: startBar,
+                        endBar: endBar,
+                        x: gridStartX,
+                        y: systemY,
+                        width: barsInLineWidth,
+                        height: instruments.length * rowHeight
+                    });
+                }
+                
                 // Render each instrument row for this line
                 instruments.forEach((instrument, instIndex) => {
                     const rowY = systemY + (instIndex * rowHeight);
+                    
+                    // GEOMETRY TRACKING: Record instrument row
+                    if (window.exportRuntime) {
+                        window.exportRuntime.instruments.push({
+                            line: line,
+                            index: instIndex,
+                            name: instrument.name,
+                            x: margin,
+                            y: rowY,
+                            width: canvas.width - 2 * margin,
+                            height: rowHeight
+                        });
+                    }
                     
                     // Instrument name with darker background box
                     const nameX = margin;
@@ -8818,6 +9150,37 @@
                         
                         for (let step = 0; step < stepsPerBar; step++) {
                             const stepX = barStartX + step * cellW + Math.floor(step / subdivision) * beatGap;
+                            const beatIndex = Math.floor(step / subdivision);
+                            
+                            // GEOMETRY TRACKING: Record beat/step positions
+                            if (window.exportRuntime && step % subdivision === 0) {
+                                // This is the first step of a beat - record beat geometry
+                                const beatKey = `${barNumber}-${beatIndex}`;
+                                const beatRect = {
+                                    bar: barNumber,
+                                    beat: beatIndex,
+                                    instrument: instIndex,
+                                    x: stepX,
+                                    y: rowY,
+                                    width: cellW * subdivision + (beatIndex < beats - 1 ? beatGap : 0),
+                                    height: cellHeight,
+                                    type: 'beat'
+                                };
+                                
+                                window.exportRuntime.elements.set(beatKey, beatRect);
+                                
+                                // Add to beats array if not already present
+                                if (!window.exportRuntime.beats.find(b => b.bar === barNumber && b.beat === beatIndex)) {
+                                    window.exportRuntime.beats.push({
+                                        bar: barNumber,
+                                        beat: beatIndex,
+                                        x: stepX,
+                                        y: rowY,
+                                        width: cellW * subdivision,
+                                        height: cellHeight
+                                    });
+                                }
+                            }
                             
                             // Get pattern value for this step in this bar
                             const globalStepIndex = (barNumber * stepsPerBar) + step;
@@ -8863,6 +9226,21 @@
                         ctx.lineTo(barEndX + 0.5, rowY + cellHeight);
                         ctx.stroke();
                         
+                        // GEOMETRY TRACKING: Record bar-level geometry (only for first instrument to avoid duplicates)
+                        if (window.exportRuntime && instIndex === 0) {
+                            const barRect = {
+                                bar: barNumber,
+                                line: line,
+                                x: barStartX,
+                                y: systemY,
+                                width: barEndX - barStartX,
+                                height: instruments.length * rowHeight,
+                                type: 'bar'
+                            };
+                            
+                            window.exportRuntime.bars.push(barRect);
+                        }
+                        
                         // 4. Draw thick horizontal bar separator line (if not last bar in line and not last instrument)
                         if (barIdx < (endBar - startBar) - 1 && instIndex === instruments.length - 1) {
                             ctx.lineWidth = 3;
@@ -8882,7 +9260,266 @@
                 });
             }
             
+            // GEOMETRY TRACKING: Finalize and summarize runtime data
+            if (window.exportRuntime) {
+                console.log('📐 Export Runtime Geometry Summary:');
+                console.log(`   Page: ${window.exportRuntime.pageRect.width}x${window.exportRuntime.pageRect.height} (scale: ${window.exportRuntime.scale})`);
+                console.log(`   Systems: ${window.exportRuntime.systems.length}`);
+                console.log(`   Instruments: ${window.exportRuntime.instruments.length}`);
+                console.log(`   Bars: ${window.exportRuntime.bars.length}`);
+                console.log(`   Beats: ${window.exportRuntime.beats.length}`);
+                console.log(`   Elements: ${window.exportRuntime.elements.size}`);
+                
+                // Create efficient lookup for hit testing
+                window.exportRuntime.hitTestLookup = createHitTestLookup();
+                
+                console.log('✅ Geometry tracking complete - hit testing enabled');
+            }
+            
             console.log('✅ Break 2.jpeg layout rendered EXACTLY!');
+        }
+        
+        // Create optimized lookup structure for fast hit testing
+        function createHitTestLookup() {
+            if (!window.exportRuntime) return null;
+            
+            const lookup = {
+                beats: [],
+                bars: [],
+                instruments: []
+            };
+            
+            // Sort beats by position for efficient spatial lookup
+            window.exportRuntime.beats.forEach(beat => {
+                lookup.beats.push({
+                    ...beat,
+                    right: beat.x + beat.width,
+                    bottom: beat.y + beat.height
+                });
+            });
+            
+            // Sort bars by position
+            window.exportRuntime.bars.forEach(bar => {
+                lookup.bars.push({
+                    ...bar,
+                    right: bar.x + bar.width,
+                    bottom: bar.y + bar.height
+                });
+            });
+            
+            // Sort instruments by position
+            window.exportRuntime.instruments.forEach(inst => {
+                lookup.instruments.push({
+                    ...inst,
+                    right: inst.x + inst.width,
+                    bottom: inst.y + inst.height
+                });
+            });
+            
+            return lookup;
+        }
+        
+        // Enhanced hit test function using real geometry data
+        function hitTestCanvas(x, y) {
+            if (!window.exportRuntime || !window.exportRuntime.hitTestLookup) {
+                console.warn('⚠️ Export runtime or hit test lookup not available');
+                return null;
+            }
+            
+            const lookup = window.exportRuntime.hitTestLookup;
+            
+            // First, find which instrument row was clicked
+            let hitInstrument = null;
+            for (const inst of lookup.instruments) {
+                if (y >= inst.y && y <= inst.bottom) {
+                    hitInstrument = inst;
+                    break;
+                }
+            }
+            
+            if (!hitInstrument) {
+                console.log('🎯 Click outside instrument rows');
+                return null;
+            }
+            
+            // Then, find which beat was clicked within that instrument row
+            let hitBeat = null;
+            for (const beat of lookup.beats) {
+                if (x >= beat.x && x <= beat.right && 
+                    y >= beat.y && y <= beat.bottom) {
+                    hitBeat = beat;
+                    break;
+                }
+            }
+            
+            if (!hitBeat) {
+                // Try to find bar-level hit
+                let hitBar = null;
+                for (const bar of lookup.bars) {
+                    if (x >= bar.x && x <= bar.right && 
+                        y >= bar.y && y <= bar.bottom) {
+                        hitBar = bar;
+                        break;
+                    }
+                }
+                
+                if (hitBar) {
+                    // Clicked in a bar but not on a specific beat
+                    // Calculate which beat based on position within bar
+                    const relativeX = x - hitBar.x;
+                    const beatWidth = hitBar.width / 4; // Assume 4 beats per bar
+                    const estimatedBeat = Math.floor(relativeX / beatWidth);
+                    
+                    return {
+                        bar: hitBar.bar,
+                        beat: Math.max(0, Math.min(estimatedBeat, 3)),
+                        instrument: hitInstrument.index,
+                        instrumentName: hitInstrument.name,
+                        element: 'bar',
+                        x: x,
+                        y: y
+                    };
+                }
+                
+                console.log('🎯 Click in instrument row but outside grid');
+                return null;
+            }
+            
+            return {
+                bar: hitBeat.bar,
+                beat: hitBeat.beat,
+                instrument: hitInstrument.index,
+                instrumentName: hitInstrument.name,
+                element: 'beat',
+                x: x,
+                y: y,
+                beatRect: hitBeat
+            };
+        }
+        
+        // Render visual selection indicator for selected beat
+        function renderSelectionIndicator(hitResult) {
+            if (!hitResult || !window.exportRuntime) return;
+            
+            console.log('🔄 Rendering selection indicator for:', hitResult);
+            
+            // Remove existing selection indicator
+            const existingIndicator = document.getElementById('selectionIndicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+            
+            // Find the exact beat rectangle from geometry data
+            let beatRect = null;
+            if (hitResult.beatRect) {
+                beatRect = hitResult.beatRect;
+            } else {
+                // Find beat rect from runtime data
+                const beat = window.exportRuntime.beats.find(b => 
+                    b.bar === hitResult.bar && b.beat === hitResult.beat
+                );
+                if (beat) beatRect = beat;
+            }
+            
+            if (!beatRect) {
+                console.warn('⚠️ Cannot find beat rectangle for selection');
+                return;
+            }
+            
+            // Create visual selection indicator
+            const indicator = document.createElement('div');
+            indicator.id = 'selectionIndicator';
+            indicator.style.cssText = `
+                position: absolute;
+                border: 3px solid #4ecdc4;
+                background: rgba(78, 205, 196, 0.2);
+                pointer-events: none;
+                z-index: 5;
+                border-radius: 4px;
+                transition: all 0.2s ease;
+                box-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+            `;
+            
+            // Calculate position relative to canvas
+            const canvas = document.getElementById('exportPreviewCanvas');
+            const canvasRect = canvas.getBoundingClientRect();
+            const scaleX = canvasRect.width / canvas.width;
+            const scaleY = canvasRect.height / canvas.height;
+            
+            indicator.style.left = (beatRect.x * scaleX) + 'px';
+            indicator.style.top = (beatRect.y * scaleY) + 'px';
+            indicator.style.width = (beatRect.width * scaleX) + 'px';
+            indicator.style.height = (beatRect.height * scaleY) + 'px';
+            
+            // Add to the sheet paper container
+            const sheetPaper = document.querySelector('.sheet-paper');
+            if (sheetPaper) {
+                sheetPaper.appendChild(indicator);
+            }
+            
+            // Update status display
+            updateSelectionStatus(hitResult);
+            
+            console.log(`✅ Selection indicator placed at Bar ${hitResult.bar + 1}, Beat ${hitResult.beat + 1}`);
+        }
+        
+        // Update selection status display
+        function updateSelectionStatus(hitResult) {
+            const statusElement = document.getElementById('selectionStatus');
+            if (statusElement) {
+                statusElement.textContent = `Selected: Bar ${hitResult.bar + 1}, Beat ${hitResult.beat + 1} (${hitResult.instrumentName || 'All instruments'})`;
+            }
+            
+            // Update selected count
+            const countElement = document.getElementById('selectedCount');
+            if (countElement) {
+                countElement.textContent = '1 beat selected';
+                countElement.style.display = 'block';
+            }
+        }
+        
+        // Wrapper functions for keyboard handlers
+        function addLineBreakFromSelection() {
+            if (!exportState.selectedBeat) {
+                console.warn('⚠️ No beat selected for break addition');
+                return;
+            }
+            addBreakFromSelection('line');
+        }
+        
+        function addPageBreakFromSelection() {
+            if (!exportState.selectedBeat) {
+                console.warn('⚠️ No beat selected for break addition');
+                return;
+            }
+            addBreakFromSelection('page');
+        }
+        
+        function removeBreakFromSelection() {
+            if (!exportState.selectedBeat) {
+                console.warn('⚠️ No beat selected for break removal');
+                return;
+            }
+            
+            const scopeData = getScopeData();
+            if (!scopeData || !scopeData.breaks) return;
+            
+            const { barIndex, beatIndex } = exportState.selectedBeat;
+            
+            // Find and remove break at selected position
+            const initialLength = scopeData.breaks.length;
+            scopeData.breaks = scopeData.breaks.filter(brk => 
+                !(brk.barIndex === barIndex && brk.beatIndex === beatIndex)
+            );
+            
+            if (scopeData.breaks.length < initialLength) {
+                console.log(`➖ Removed break at Bar ${barIndex + 1}, Beat ${beatIndex + 1}`);
+                updateBreakList();
+                renderExportPreview();
+                showToast('Break removed');
+            } else {
+                showToast('No break found at selected position');
+            }
         }
 
         function renderExportPreview() {
@@ -9939,10 +10576,11 @@
             const clickedBeat = getBeatAtPosition(x, y);
             
             if (clickedBeat) {
-                // Select the beat for keyboard break controls
-                selectedBeat = clickedBeat;
+                // Select the beat for keyboard break controls - use exportState.selectedBeat
+                exportState.selectedBeat = clickedBeat;
                 
                 // Visual feedback for selected beat
+                renderSelectionOutline();
                 renderExportPreview();
                 
                 // Show which beat is selected
@@ -9977,42 +10615,36 @@
             } else {
                 // Clear selection if clicking empty space
                 clearSelection();
-                selectedBeat = null; // Clear beat selection too
+                exportState.selectedBeat = { barIndex: 0, beatIndex: 0 }; // Reset to default beat
+                renderSelectionOutline();
             }
         }
         
         function getBeatAtPosition(x, y) {
-            const section = getCurrentSection();
+            const section = getScopeData(); // Use getScopeData for consistency
             if (!section) return null;
             
             const canvas = document.getElementById('exportPreviewCanvas');
             if (!canvas) return null;
             
+            // Generate layout same way as render function
             const layout = generateGridLayout(section, canvas.width);
             if (!layout) return null;
             
-            console.log('🎯 Beat detection - Click at:', x, y);
-            console.log('📐 Layout info:', { totalBars: layout.totalBars, beatsPerBar: layout.beatsPerBar });
-            
-            // Check if click is in the beat label area (approximately)
-            // This is a simplified check - in a more complex implementation we'd track exact positions
+            // Check if click is near any beat center across the entire canvas height
             for (let barIndex = 0; barIndex < layout.totalBars; barIndex++) {
                 for (let beatIndex = 0; beatIndex < layout.beatsPerBar; beatIndex++) {
                     const globalBeatIndex = barIndex * layout.beatsPerBar + beatIndex;
                     const beatCenterX = layout.beatCenterX(globalBeatIndex);
-                    const distance = Math.abs(x - beatCenterX);
                     
-                    console.log(`🎯 Testing beat ${barIndex}.${beatIndex} at x=${beatCenterX}, distance=${distance}`);
-                    
-                    // Check if click is near this beat's center (within reasonable range)
-                    if (distance < 40) { // Generous hit area, no Y restriction
-                        console.log('✅ Beat selected!', { barIndex, beatIndex });
+                    // More generous hit detection - check if click is near this beat's center
+                    // Allow clicks anywhere vertically and within reasonable horizontal range
+                    if (Math.abs(x - beatCenterX) < 30) { // Increased hit area for better usability
                         return { barIndex, beatIndex };
                     }
                 }
             }
             
-            console.log('❌ No beat found at click position');
             return null;
         }
 
@@ -12020,7 +12652,7 @@ ${elements.join('\n')}
                 const beatLabel = `${barIndex + 1}.${beatInBar + 1}`;
                 
                 // Highlight selected beat
-                if (selectedBeat && selectedBeat.barIndex === barIndex && selectedBeat.beatIndex === beatInBar) {
+                if (exportState.selectedBeat && exportState.selectedBeat.barIndex === barIndex && exportState.selectedBeat.beatIndex === beatInBar) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(78, 205, 196, 0.3)';
                     ctx.fillRect(layout.beatCenterX(beatIndex) - 15, cursorY - 2, 30, exportStyles.beatNumbers.fontSize + 4);
@@ -13313,58 +13945,6 @@ function applyTheme(themeName) {
     const themeSelector = document.getElementById('themeSelector');
     if (themeSelector) themeSelector.value = '';
 }
-</script>
-</body>
-</html>
-
-<!-- SIMPLE ZOOM FIX - ONLY ZOOM, NOTHING ELSE -->
-<style>
-#exportPreviewCanvas {
-    width: 2400px !important;
-    height: 3400px !important;
-}
-</style>
-
-<script>
-// SIMPLE ZOOM - NO COMPLEX SHIT
-document.addEventListener("DOMContentLoaded", function() {
-    setTimeout(function() {
-        // Find existing zoom buttons and make them work
-        const minusBtn = document.querySelector("button[onclick*=\"adjustZoom(-\"]");
-        const plusBtn = document.querySelector("button[onclick*=\"adjustZoom(0.2\"]");
-        
-        if (minusBtn && plusBtn) {
-            let currentZoom = 1.0;
-            
-            minusBtn.onclick = function() {
-                currentZoom = Math.max(0.3, currentZoom - 0.2);
-                applySimpleZoom();
-            };
-            
-            plusBtn.onclick = function() {
-                currentZoom = Math.min(3.0, currentZoom + 0.2);
-                applySimpleZoom();
-            };
-            
-            function applySimpleZoom() {
-                const canvas = document.getElementById("exportPreviewCanvas");
-                if (canvas) {
-                    canvas.style.transform = "scale(" + currentZoom + ")";
-                    canvas.style.transformOrigin = "top left";
-                }
-                
-                const display = document.getElementById("zoomLevel");
-                if (display) {
-                    display.textContent = Math.round(currentZoom * 100) + "%";
-                }
-                
-                console.log("Zoom:", Math.round(currentZoom * 100) + "%");
-            }
-            
-            console.log("✅ Simple zoom buttons fixed");
-        }
-    }, 2000);
-});
 </script>
 </body>
 </html>
