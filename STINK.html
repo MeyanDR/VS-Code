@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Export Test</title>
+  <style>
+    body { margin:0; font-family:sans-serif; background:#333; color:#fff; }
+
+    /* ===== Simple A4 export preview (layout-only) ===== */
+    #a4ExportOverlay { display: none; position:fixed; inset:0; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; z-index:9999; }
+    .export-window { background:#222; border-radius:8px; width:90%; height:90%; display:flex; flex-direction:column; }
+    .export-header { display:flex; justify-content:space-between; align-items:center; padding:8px 16px; background:#111; }
+    .export-header h1 { font-size:16px; margin:0; }
+    .export-header .current-section { font-size:12px; opacity:0.7; }
+
+    .export-btn, .export-toggle {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 6px; color: white; padding: 6px 12px; cursor: pointer;
+      font-size: 12px; font-weight: 600;
+    }
+    .export-btn:hover, .export-toggle:hover { background: rgba(255,255,255,0.25); }
+
+    .a4-container {
+      flex:1; display:flex; align-items:center; justify-content:center; padding:16px;
+    }
+    .a4-page {
+      width:794px; height:1123px;
+      background:#fff; color:#000;
+      border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.35);
+      position:relative; padding:32px; box-sizing:border-box;
+    }
+    .a4-page .guide { border:2px dashed #222; border-radius:6px; }
+    .a4-page .guide.invisible { border-color:transparent; }
+    .editable-text { outline:none; cursor:text; }
+    .editable-text:focus { box-shadow: inset 0 -2px 0 #4ecdc4; }
+
+    .page-safe    { position:absolute; inset:24px; padding:16px; }
+    .title-block  { margin:0 0 16px 0; padding:12px; text-align:center; }
+    .title-text   { font-size:36px; font-weight:800; }
+    .section-name { margin-top:8px; padding:8px 12px; font-size:20px; font-weight:700; }
+    .section-notes{ margin-top:8px; padding:8px 12px; font-size:12px; color:#333; min-height:32px; }
+    .bar-label    { margin-top:16px; padding:8px 12px; font-weight:700; }
+    .bar-numbers  { margin-top:8px; padding:8px 12px; font-size:12px; letter-spacing:2px; }
+    .instruments-area {
+      margin-top:8px; padding:12px; min-height:550px;
+      display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start;
+      color:#666; font-weight:600;
+    }
+
+    /* === Song-style sequence layout === */
+    .seq-wrap { margin-top: 12px; }
+    .seq-row { display:flex; align-items:stretch; gap: 12px; margin: 10px 0; }
+    .seq-name { width: 180px; display:flex; align-items:center; justify-content:flex-start; padding: 10px 14px; border:2px solid #bbb; border-radius:4px; background:#f4f4f4; font-weight:700; color:#000; }
+    .seq-grid { display:flex; gap:12px; flex: 1; }
+    .beat { display:grid; grid-auto-flow:column; grid-auto-columns: 42px; align-items:stretch; border-left:4px solid #000; padding-left: 0; }
+    .sub { border:2px solid #bbb; width:42px; height:48px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px; position:relative; background:#fff; color:#000; }
+    .sub.thick { border-width:3px; }
+    .sub .accent { position:absolute; left:4px; bottom:2px; font-size:16px; font-weight:900; }
+    /* bar numbers above */
+    .bar-numbers-row { display:flex; gap:12px; margin: 10px 192px; /* indent to align over grid (name width + gap) */ color:#000; }
+    .bar-num { width: calc( (42px*4) + 0px ); text-align:center; font-weight:700; }
+    /* legend */
+    .legend { display:flex; gap:60px; flex-wrap:wrap; margin-top: 24px; color:#000; }
+    .legend h4 { margin: 0 0 8px 0; }
+    .legend-item { display:flex; align-items:center; gap:8px; font-size:14px; }
+    .legend-symbol { width:28px; height:28px; border:2px solid #bbb; display:flex; align-items:center; justify-content:center; font-weight:800; background:#fff; color:#000; }
+  </style>
+</head>
+<body>
+
+<button onclick="openExportModal()">Open Export Preview</button>
+
+<!-- Overlay -->
+<div id="a4ExportOverlay" class="export-overlay">
+  <div class="export-window">
+    <div class="export-header">
+      <div>
+        <h1>Export Preview</h1>
+        <span class="current-section">Klik op tekst om te wijzigen</span>
+      </div>
+      <div class="right-controls">
+        <button id="toggleGuidesBtn" class="export-toggle">Kaders: aan</button>
+        <button class="export-btn" onclick="closeExportModal()">Sluiten</button><select id="examplePicker" class="export-btn" style="background:rgba(255,255,255,0.1); color:#fff;">
+  <option value="groove3">Groove 3 (screenshot)</option>
+  <option value="basicRock">Basic Rock 4/4</option>
+  <option value="afro34">Afro 3/4</option>
+  <option value="funk">Funk Syncopation 4/4</option>
+</select>
+<button class="export-btn" id="loadExampleBtn">Laad voorbeeld</button>
+      </div>
+    </div>
+
+    <div class="a4-container">
+      <div id="a4Page" class="a4-page">
+        <div id="safeArea" class="page-safe guide">
+          <div class="title-block guide">
+            <div id="exportTitle" class="title-text editable-text" contenteditable="true">Title</div>
+          </div>
+          <div class="section-name guide editable-text" contenteditable="true">Section name</div>
+          <div class="section-notes guide editable-text" contenteditable="true">Section notes</div>
+          <div class="bar-label guide editable-text" contenteditable="true">Bar 1</div>
+          <div class="bar-numbers guide editable-text" contenteditable="true">1   2   3   4</div>
+          <div id="seqArea" class="instruments-area guide" contenteditable="false">
+            <!-- Fallback: Groove 3 layout (wordt overschreven door JS zodra renderSequenceToA4 draait) -->
+            <div class="bar-numbers-row">
+              <div class="bar-num">1</div>
+              <div class="bar-num">2</div>
+              <div class="bar-num">3</div>
+              <div class="bar-num">4</div>
+            </div>
+
+            <div class="seq-row">
+              <div class="seq-name">Vero</div>
+              <div class="seq-grid">
+                <div class="beat">
+                  <div class="sub"></div><div class="sub">x</div><div class="sub"></div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub"></div><div class="sub">x</div><div class="sub">x</div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub"></div><div class="sub">x</div><div class="sub"></div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub"></div><div class="sub"></div><div class="sub"></div><div class="sub"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="seq-row">
+              <div class="seq-name">Leo</div>
+              <div class="seq-grid">
+                <div class="beat">
+                  <div class="sub">x</div><div class="sub">x</div><div class="sub"></div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub">/</div><div class="sub"></div><div class="sub">o</div><div class="sub">o</div>
+                </div>
+                <div class="beat">
+                  <div class="sub">/</div><div class="sub"></div><div class="sub">o</div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub">o</div><div class="sub">/</div><div class="sub">x</div><div class="sub">x</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="seq-row">
+              <div class="seq-name">Djembe</div>
+              <div class="seq-grid">
+                <div class="beat">
+                  <div class="sub">o</div><div class="sub">o</div><div class="sub">x</div><div class="sub">o</div>
+                </div>
+                <div class="beat">
+                  <div class="sub">o</div><div class="sub">/</div><div class="sub">x</div><div class="sub">o</div>
+                </div>
+                <div class="beat">
+                  <div class="sub">/</div><div class="sub">x</div><div class="sub">o</div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub">o</div><div class="sub">/</div><div class="sub">x</div><div class="sub">x</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="seq-row">
+              <div class="seq-name">Kick</div>
+              <div class="seq-grid">
+                <div class="beat">
+                  <div class="sub"><div class="accent"><</div></div><div class="sub">o</div><div class="sub"></div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub"></div><div class="sub">o</div><div class="sub"><div class="accent"><</div></div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub"></div><div class="sub"></div><div class="sub"></div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub"></div><div class="sub">o</div><div class="sub"><div class="accent"><</div></div><div class="sub"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="seq-row">
+              <div class="seq-name">Snare (Jan)</div>
+              <div class="seq-grid">
+                <div class="beat">
+                  <div class="sub"></div><div class="sub"></div><div class="sub"></div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub"><div class="accent"><</div></div><div class="sub">/</div><div class="sub"></div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub"></div><div class="sub"></div><div class="sub">/</div><div class="sub"></div>
+                </div>
+                <div class="beat">
+                  <div class="sub"></div><div class="sub"></div><div class="sub">/</div><div class="sub">/</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="seqLegend" class="legend guide"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function openExportModal() {
+  document.getElementById('a4ExportOverlay').style.display = 'flex';
+  setGuidesVisible(true);
+  document.addEventListener('keydown', escClose);
+}
+function closeExportModal() {
+  document.getElementById('a4ExportOverlay').style.display = 'none';
+  document.removeEventListener('keydown', escClose);
+}
+function escClose(e){ if(e.key==="Escape") closeExportModal(); }
+
+function setGuidesVisible(on){
+  var page=document.getElementById('a4Page');
+  var btn=document.getElementById('toggleGuidesBtn');
+  page.querySelectorAll('.guide').forEach(el=>el.classList.toggle('invisible',!on));
+  if(btn) btn.textContent="Kaders: "+(on?"aan":"uit");
+  page.dataset.guides=on?"1":"0";
+}
+document.getElementById('toggleGuidesBtn').addEventListener('click',()=>{
+  var on=!(document.getElementById('a4Page').dataset.guides==="1");
+  setGuidesVisible(on);
+});
+
+/* === Data-driven renderer for Song-style layout === */
+function renderSequenceToA4(data){
+  // Fill top texts
+  const t = document.getElementById('exportTitle');
+  const secName = document.querySelector('.section-name');
+  const secNotes = document.querySelector('.section-notes');
+  const barLabel = document.querySelector('.bar-label');
+  const barNums  = document.querySelector('.bar-numbers');
+  if(t) t.textContent = data.title || 'Title';
+  if(secName) secName.textContent = data.section || 'Section name';
+  if(secNotes) secNotes.innerHTML = (data.sectionNotes||[]).join('<br>') || 'Section notes';
+  if(barLabel) barLabel.textContent = data.barLabel || 'Bar 1';
+  if(barNums)  barNums.textContent  = (data.beatNumbers||[]).join('    ');
+
+  const host = document.getElementById('seqArea');
+  const legendHost = document.getElementById('seqLegend');
+  if(!host) return;
+  host.innerHTML = '';
+  legendHost.innerHTML = '';
+
+  // optional bar numbers line (visual, above grid)
+  if(data.beatNumbers && data.beatNumbers.length){
+    const barRow = document.createElement('div');
+    barRow.className = 'bar-numbers-row';
+    data.beatNumbers.forEach((num)=>{
+      const n = document.createElement('div');
+      n.className = 'bar-num';
+      n.textContent = String(num);
+      barRow.appendChild(n);
+    });
+    host.appendChild(barRow);
+  }
+
+  // rows
+  (data.rows||[]).forEach(row=>{
+    const r = document.createElement('div'); r.className='seq-row';
+    const name = document.createElement('div'); name.className='seq-name'; name.textContent = row.name;
+    const grid = document.createElement('div'); grid.className='seq-grid';
+
+    // beats
+    (row.beats||[]).forEach(beat=>{
+      const beatEl = document.createElement('div'); beatEl.className='beat';
+      const subs = beat.subdivisions || [];
+      subs.forEach((cell,idx)=>{
+        const c = document.createElement('div'); c.className='sub';
+        if(cell.thick) c.classList.add('thick');
+        c.textContent = (cell.symbol||'').replace('<','');
+        if(cell.accent){ const a=document.createElement('div'); a.className='accent'; a.textContent='<'; c.appendChild(a); }
+        beatEl.appendChild(c);
+      });
+      grid.appendChild(beatEl);
+    });
+
+    r.appendChild(name); r.appendChild(grid); host.appendChild(r);
+  });
+
+  // Add margin to legend if there is content above
+  legendHost.style.marginTop = host.children.length ? '24px' : '0';
+
+  // legend
+  if(data.legend !== false){
+    const items = [
+      {label:'o = Dot note', sym:'o'},
+      {label:'x = Cross note', sym:'x'},
+      {label:'/ = Slash note', sym:'/'},
+      {label:'1,2,3 = Variations', sym:'1'},
+      {label:'(...) = Ghost/Soft', sym:'·'},
+      {label:'< = Accent', sym:'<'},
+    ];
+    items.forEach(it=>{
+      const row=document.createElement('div'); row.className='legend-item';
+      const s=document.createElement('div'); s.className='legend-symbol'; s.textContent=it.sym.replace('<','');
+      const t=document.createElement('div'); t.textContent=it.label;
+      row.appendChild(s); row.appendChild(t);
+      legendHost.appendChild(row);
+    });
+  }
+}
+
+// === Voorbeelden van instrument-lijnen + sequenties ===
+const EXAMPLES = {
+  groove3: {
+    title: 'Song 3',
+    section: 'Groove 3',
+    sectionNotes: ['Vero & Leo 3/4','Jan & Suchet 4/4'],
+    barLabel: 'Bar 1',
+    beatNumbers: [1,2,3,4],
+    rows: [
+      { name:'Vero',  beats:[
+        { subdivisions:[{symbol:''},{symbol:'x'},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'x'},{symbol:'x'},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'x'},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:''},{symbol:''}] },
+      ]},
+      { name:'Leo',   beats:[
+        { subdivisions:[{symbol:'x'},{symbol:'x'},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:'/'},{symbol:''},{symbol:'o'},{symbol:'o'}] },
+        { subdivisions:[{symbol:'/'},{symbol:''},{symbol:'o'},{symbol:''}] },
+        { subdivisions:[{symbol:'o'},{symbol:'/'},{symbol:'x'},{symbol:'x'}] },
+      ]},
+      { name:'Djembe',beats:[
+        { subdivisions:[{symbol:'o'},{symbol:'o'},{symbol:'x'},{symbol:'o'}] },
+        { subdivisions:[{symbol:'o'},{symbol:'/'},{symbol:'x'},{symbol:'o'}] },
+        { subdivisions:[{symbol:'/'},{symbol:'x'},{symbol:'o'},{symbol:''}] },
+        { subdivisions:[{symbol:'o'},{symbol:'/'},{symbol:'x'},{symbol:'x'}] },
+      ]},
+      { name:'Kick',  beats:[
+        { subdivisions:[{symbol:'',accent:true},{symbol:'o'},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'o',accent:true},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'o',accent:true},{symbol:''},{symbol:''}] },
+      ]},
+      { name:'Snare (Jan)', beats:[
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:'',accent:true},{symbol:'/'},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:'/'},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:'/'},{symbol:'/',accent:true}] },
+      ]}
+    ]
+  },
+  basicRock: {
+    title: 'Basic Rock',
+    section: 'Straight 4/4',
+    sectionNotes: ['HH 8ths, SD 2&4, BD on 1&3'],
+    barLabel: 'Bar 1',
+    beatNumbers: [1,2,3,4],
+    rows: [
+      { name:'Hi-hat', beats:[
+        { subdivisions:[{symbol:'x'},{symbol:''},{symbol:'x'},{symbol:''}] },
+        { subdivisions:[{symbol:'x'},{symbol:''},{symbol:'x'},{symbol:''}] },
+        { subdivisions:[{symbol:'x'},{symbol:''},{symbol:'x'},{symbol:''}] },
+        { subdivisions:[{symbol:'x'},{symbol:''},{symbol:'x'},{symbol:''}] },
+      ]},
+      { name:'Snare', beats:[
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:'/'},{symbol:''},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:'/'},{symbol:''},{symbol:''},{symbol:''}] },
+      ]},
+      { name:'Kick', beats:[
+        { subdivisions:[{symbol:'o'},{symbol:''},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:'o'},{symbol:''}] },
+        { subdivisions:[{symbol:'o'},{symbol:''},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:''},{symbol:''}] },
+      ]}
+    ]
+  },
+  afro34: {
+    title: 'Afro Groove',
+    section: '3/4 feel',
+    sectionNotes: ['Triplet-ish feel'],
+    barLabel: 'Bar 1',
+    beatNumbers: [1,2,3],
+    rows: [
+      { name:'Bell', beats:[
+        { subdivisions:[{symbol:'x'},{symbol:''},{symbol:'x'},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'x'},{symbol:''},{symbol:'x'}] },
+        { subdivisions:[{symbol:'x'},{symbol:''},{symbol:'x'},{symbol:''}] },
+      ]},
+      { name:'Djembe', beats:[
+        { subdivisions:[{symbol:'o'},{symbol:''},{symbol:''},{symbol:'o'}] },
+        { subdivisions:[{symbol:''},{symbol:'o'},{symbol:'o'},{symbol:''}] },
+        { subdivisions:[{symbol:'o'},{symbol:''},{symbol:'o'},{symbol:''}] },
+      ]},
+      { name:'Kick', beats:[
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:'o',accent:true},{symbol:''}] },
+        { subdivisions:[{symbol:'o'},{symbol:''},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'o'},{symbol:''},{symbol:''}] },
+      ]}
+    ]
+  },
+  funk: {
+    title: 'Funk Pattern',
+    section: 'Syncopated 4/4',
+    sectionNotes: ['Ghosts on snare'],
+    barLabel: 'Bar 1',
+    beatNumbers: [1,2,3,4],
+    rows: [
+      { name:'Hi-hat', beats:[
+        { subdivisions:[{symbol:'x'},{symbol:''},{symbol:'x'},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'x'},{symbol:''},{symbol:'x'}] },
+        { subdivisions:[{symbol:'x'},{symbol:''},{symbol:'x'},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'x'},{symbol:''},{symbol:'x'}] },
+      ]},
+      { name:'Snare', beats:[
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:'/'},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'/'},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:'/'},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:'/'},{symbol:''},{symbol:'/' ,accent:true}] },
+      ]},
+      { name:'Kick', beats:[
+        { subdivisions:[{symbol:'o'},{symbol:''},{symbol:''},{symbol:'o'}] },
+        { subdivisions:[{symbol:''},{symbol:'o'},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:'o'},{symbol:''},{symbol:''},{symbol:''}] },
+        { subdivisions:[{symbol:''},{symbol:''},{symbol:'o'},{symbol:''}] },
+      ]}
+    ]
+  }
+};
+
+// Overlay openen: laad het gekozen voorbeeld
+const __openExportModal = openExportModal;
+openExportModal = function(){
+  __openExportModal();
+  const picker = document.getElementById('examplePicker');
+  const key = picker ? picker.value : 'groove3';
+  renderSequenceToA4(EXAMPLES[key]);
+};
+
+// Laadknop handler
+document.getElementById('loadExampleBtn').addEventListener('click', function(){
+  const key = document.getElementById('examplePicker').value;
+  renderSequenceToA4(EXAMPLES[key]);
+});
+
+// --- Safety: default render in case user doesn't press the button or picker missing
+(function(){
+  function safeRenderDefault(){
+    try {
+      renderSequenceToA4(EXAMPLES['groove3']);
+    } catch(e) { console && console.warn && console.warn('Render failed:', e); }
+  }
+  // render once when DOM is ready (overlay content exists even if hidden)
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', safeRenderDefault);
+  } else {
+    safeRenderDefault();
+  }
+})();
+
+// --- Extra safety: render when overlay becomes visible and grid is empty
+(function(){
+  const overlay = document.getElementById('a4ExportOverlay');
+  const target  = document.getElementById('seqArea');
+  if(!overlay || !target) return;
+
+  function ensureRendered(){
+    if(!target.firstElementChild){
+      try { renderSequenceToA4(EXAMPLES['groove3']); } catch(e){}
+    }
+  }
+
+  // Run shortly after any style/class change (e.g., when openExportModal shows it)
+  const mo = new MutationObserver(()=> setTimeout(ensureRendered, 0));
+  mo.observe(overlay, { attributes:true, attributeFilter:['style','class'] });
+
+  // Also run once when user clicks inside overlay area
+  overlay.addEventListener('transitionend', ensureRendered, { once:false });
+})();
+</script>
+</body>
+</html>

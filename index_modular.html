@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TROMKLUB Machine - Modular Version</title>
+    <base target="_top">
+    
+    <!-- Modular CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- External Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <!-- 1. TITLE BAR -->
+    <div class="full-width-section">
+        <div class="header">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+                <h1>🥁 The TROMKLUB machine</h1>
+                <span style="font-family: cursive; font-size: 18px; color: #666; font-style: italic;">Made By Jan Heirman</span>
+            </div>
+            <p id="projectTitle" onclick="editProjectTitle()" style="cursor: pointer;" title="Click to edit project name">Untitled Project</p>
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    <div class="full-width-section">
+        <div id="errorDisplay" class="error-display"></div>
+        <div id="debugInfo" class="debug-info"></div>
+    </div>
+
+    <!-- 2. FUNCTION BAR -->
+    <div class="full-width-section">
+        <div class="function-bar">
+            <h3>🔧 Functions</h3>
+            <button class="btn btn-save" id="newBtn" title="Start New Project">🆕 New</button>
+            <button class="btn btn-undo" id="undoBtn" disabled title="Undo">↶ Undo</button>
+            <button class="btn btn-redo" id="redoBtn" disabled title="Redo">↷ Redo</button>
+            <button class="btn btn-cut" id="cutBtn" disabled title="Cut Selection (Cmd/Alt+X)">✂️ Cut</button>
+            <button class="btn btn-copy" id="copyBtn" disabled title="Copy Selection (Cmd/Alt+C)">📋 Copy</button>
+            <button class="btn btn-paste" id="pasteBtn" disabled title="Paste Selection (Cmd/Alt+V)">📋 Paste</button>
+            <button class="btn btn-save" id="saveBtn" title="Save to Session">💾 Save</button>
+            <button class="btn btn-save" id="loadBtn" title="Load from Session">📂 Load</button>
+            <button class="btn btn-clear" id="clearBtn" title="Clear All Patterns">🗑️ Clear</button>
+            <button class="btn btn-export" id="exportBtn">📋 Export</button>
+        </div>
+    </div>
+
+    <!-- 3. CONTROLS -->
+    <div class="full-width-section">
+        <div class="controls">
+            <div class="control-group">
+                <label>Bars:</label>
+                <input id="barsInput" type="number" value="4" min="1" max="16">
+            </div>
+            <div class="control-group">
+                <label>Beats:</label>
+                <input id="beatsInput" type="number" value="4" min="1" max="32">
+            </div>
+            <div class="control-group">
+                <label>Subdivision:</label>
+                <input id="subdivisionInput" type="number" value="4" min="2" max="16">
+            </div>
+            <button class="btn" id="updateGridBtn">Update Grid</button>
+            <button class="btn btn-add" id="addInstrumentBtn" title="Add Instrument">+</button>
+        </div>
+    </div>
+
+    <!-- 4. CURRENT SECTION INFO -->
+    <div class="full-width-section">
+        <div class="current-section-info">
+            <h3 id="currentSectionName">Intro</h3>
+            <p id="currentSectionDetails">4 bars × 4 beats × 4 subdivision</p>
+        </div>
+
+        <!-- Section Notes -->
+        <div class="notes-section">
+            <label style="color: #4ecdc4; font-weight: bold; margin-bottom: 6px; display: block; font-size: 13px;">Section Notes:</label>
+            <textarea id="sectionNotes" class="section-notes-input" placeholder="Add notes about this section..." rows="2"></textarea>
+        </div>
+
+        <!-- Tips -->
+        <div class="group-controls">
+            <div style="color: #b8b8b8; font-size: 12px; line-height: 1.3;">
+                <div style="margin-bottom: 6px;">
+                    💡 <strong style="color: #ffc107;">Grouping:</strong> Use gold <strong>+</strong> buttons between rows to group/ungroup instruments!
+                </div>
+                <div style="margin-bottom: 6px;">
+                    📋 <strong style="color: #4ecdc4;">Reordering:</strong> Drag <strong>⋮⋮</strong> handle to reorder instruments up/down.
+                </div>
+                <div style="margin-bottom: 6px;">
+                    🎵 <strong style="color: #4ecdc4;">Step Controls:</strong>
+                    <strong>Click empty</strong> → Add • <strong>Click filled</strong> → Edit • <strong>Cmd/Alt+Click</strong> → Delete • <strong>Double-click</strong> → Quick delete • <strong>Drag</strong> → Paint patterns
+                </div>
+                <div>
+                    📝 <strong style="color: #ffc107;">Selection:</strong>
+                    <strong>Shift+Drag</strong> → Select area • <strong>Cut/Copy/Paste</strong> → Edit selections • <strong>🎼 MIDI</strong> → Drag MIDI files to import
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. MAIN SEQUENCER -->
+    <div class="full-width-section">
+        <div class="sequencer-container">
+            <!-- Left: Symbol Controls -->
+            <div class="symbol-controls">
+                <!-- MIDI Drop Zone -->
+                <div class="midi-drop-zone" id="midiDropZone">
+                    <h4>🎼 MIDI Import</h4>
+                    <p>Drop MIDI files here or click to browse</p>
+                    <p style="font-size: 10px; margin-top: 5px;">Supports: .mid, .midi files</p>
+                </div>
+                <input type="file" id="midiFileInput" accept=".mid,.midi" style="display: none;">
+                
+                <!-- Pattern Type Controls -->
+                <div class="pattern-type">
+                    <label>Pattern Type:</label>
+                    <div style="display: flex; gap: 6px; margin-top: 6px;">
+                        <div class="pattern-symbol active" id="loopSymbolSide" title="Loop - Repeats continuously">
+                            ∞
+                        </div>
+                        <div class="pattern-symbol" id="breakSymbolSide" title="Break - Plays once">
+                            ||
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Note Type Selection -->
+                <div class="symbol-section">
+                    <label style="color: #4ecdc4; font-weight: bold; margin-bottom: 6px; display: block; font-size: 13px;">Note Type:</label>
+                    <div class="symbol-row">
+                        <div class="note-symbol active" data-symbol="o" title="Dot note">o</div>
+                        <div class="note-symbol" data-symbol="x" title="Cross note">x</div>
+                        <div class="note-symbol" data-symbol="/" title="Slash note">/</div>
+                    </div>
+                </div>
+
+                <!-- Modifiers -->
+                <div class="modifier-section">
+                    <label style="color: #4ecdc4; font-weight: bold; margin-bottom: 6px; display: block; font-size: 13px;">Modifier:</label>
+                    <div class="modifier-row">
+                        <div class="note-modifier active" data-modifier="" title="No modifier">&nbsp;</div>
+                        <div class="note-modifier" data-modifier="1" data-type="super" title="Variation 1">1</div>
+                        <div class="note-modifier" data-modifier="2" data-type="super" title="Variation 2">2</div>
+                        <div class="note-modifier" data-modifier="3" data-type="super" title="Variation 3">3</div>
+                        <div class="note-modifier" data-modifier="(...)" data-type="sub" title="Ghost note">(...)</div>
+                        <div class="note-modifier" data-modifier="<" data-type="sub" title="Accent">&lt;</div>
+                    </div>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-section">
+                    <label style="color: #4ecdc4; font-weight: bold; margin-bottom: 6px; display: block; font-size: 13px;">Preview:</label>
+                    <div class="symbol-preview" id="symbolPreview">o</div>
+                </div>
+                
+                <!-- Selection Controls -->
+                <div class="selection-controls">
+                    <label style="color: #4ecdc4; font-weight: bold; margin-bottom: 8px; display: block; font-size: 13px;">Selection Tools:</label>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn btn-cut" id="cutBtnSide" disabled title="Cut Selection (Cmd/Alt+X)">✂️ Cut</button>
+                        <button class="btn btn-copy" id="copyBtnSide" disabled title="Copy Selection (Cmd/Alt+C)">📋 Copy</button>
+                        <button class="btn btn-paste" id="pasteBtnSide" disabled title="Paste Selection (Cmd/Alt+V)">📋 Paste</button>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <button class="btn" id="clearSelectionBtn" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe); font-size: 11px; padding: 6px 12px;" title="Clear Selection">🗑️ Clear Selection</button>
+                    </div>
+                    <div style="color: #b8b8b8; font-size: 11px; margin-top: 8px; line-height: 1.3;">
+                        💡 <strong>Shift+Drag</strong> to select area<br>
+                        🎯 <strong>Ctrl+Click</strong> for multi-select<br>
+                        🗑️ <strong>Cmd/Alt+Click</strong> to delete step
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Instrument Section -->
+            <div class="instrument-section">
+                <!-- Instrument rows will be generated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. SONG STRUCTURE -->
+    <div class="full-width-section">
+        <div class="sections-overview">
+            <h3>🎼 Song Structure</h3>
+            <div class="sections-grid" id="sectionsGrid">
+                <!-- Section cards will be generated here -->
+            </div>
+            <button class="add-section-btn" id="addSectionBtn">+ Add New Section</button>
+        </div>
+    </div>
+
+    <!-- 7. EXPORT & LEGEND -->
+    <div class="full-width-section">
+        <div class="export-section">
+            <div class="legend">
+                <h4>Symbol Legend</h4>
+                <div class="legend-item">
+                    <div class="legend-symbol">o</div>
+                    <input type="text" class="legend-input" id="legend-o" placeholder="Enter description for 'o'" value="Dot note">
+                </div>
+                <div class="legend-item">
+                    <div class="legend-symbol">x</div>
+                    <input type="text" class="legend-input" id="legend-x" placeholder="Enter description for 'x'" value="Cross note">
+                </div>
+                <div class="legend-item">
+                    <div class="legend-symbol">/</div>
+                    <input type="text" class="legend-input" id="legend-slash" placeholder="Enter description for '/'" value="Slash note">
+                </div>
+                <div class="legend-item">
+                    <div class="legend-symbol">123</div>
+                    <input type="text" class="legend-input" id="legend-123" placeholder="Enter description for numbers" value="Variations">
+                </div>
+                <div class="legend-item">
+                    <div class="legend-symbol">(...)</div>
+                    <input type="text" class="legend-input" id="legend-ghost" placeholder="Enter description for (...)" value="Ghost note / Soft hit">
+                </div>
+                <div class="legend-item">
+                    <div class="legend-symbol">&lt;</div>
+                    <input type="text" class="legend-input" id="legend-accent" placeholder="Enter description for '<'" value="Accent">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    
+    <!-- Edit Instrument Modal -->
+    <div id="editInstrumentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Instrument</h3>
+            </div>
+            <div class="form-group">
+                <label>Name:</label>
+                <input type="text" id="editInstrumentName" placeholder="Instrument name">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn" onclick="hideModal('editInstrument')">Cancel</button>
+                <button class="btn btn-save" onclick="saveInstrumentEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subdivision Modal -->
+    <div id="subdivisionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Choose Subdivision</h3>
+            </div>
+            <div class="options-grid">
+                <button class="option-btn" onclick="setSubdivision(2)">2</button>
+                <button class="option-btn" onclick="setSubdivision(3)">3</button>
+                <button class="option-btn" onclick="setSubdivision(4)">4</button>
+                <button class="option-btn" onclick="setSubdivision(6)">6</button>
+                <button class="option-btn" onclick="setSubdivision(8)">8</button>
+                <button class="option-btn" onclick="setSubdivision(12)">12</button>
+                <button class="option-btn" onclick="setSubdivision(16)">16</button>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn" onclick="hideModal('subdivision')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="export-overlay" style="display: none;">
+        <div class="export-window">
+            <div class="export-header">
+                <div class="header-left">
+                    <h1>Professional Export</h1>
+                    <span class="current-section">Current Section: <span id="exportCurrentSection">Intro</span></span>
+                </div>
+                <div class="header-right">
+                    <div class="export-buttons">
+                        <button class="export-btn" id="exportPDFBtn">📄 Export PDF</button>
+                        <button class="export-btn" id="exportPNGBtn">🖼️ Export PNG</button>
+                        <button class="export-btn" id="exportJPGBtn">📸 Export JPEG</button>
+                    </div>
+                    <button class="close-export" onclick="hideModal('export')">✕</button>
+                </div>
+            </div>
+            <div class="export-container">
+                <div class="control-panel">
+                    <div class="panel-section">
+                        <div class="panel-header">
+                            🎯 Export Options
+                        </div>
+                        <div class="panel-body">
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="exportScope" value="section" checked>
+                                    Current Section Only
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="exportScope" value="song">
+                                    Complete Song
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sheet-area">
+                    <div class="sheet-header">
+                        <h4>Preview</h4>
+                        <div class="sheet-info">Ready to export</div>
+                    </div>
+                    <div class="sheet-container">
+                        <canvas id="exportPreviewCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session List Modal -->
+    <div id="sessionListModal" class="modal">
+        <div class="modal-content wide">
+            <div class="modal-header">
+                <h3>Saved Sessions</h3>
+            </div>
+            <div class="session-list" id="sessionList">
+                <!-- Session items will be generated here -->
+            </div>
+            <div class="modal-buttons">
+                <button class="btn" onclick="hideModal('sessionList')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="projectFileInput" accept=".json" style="display: none;">
+
+    <!-- Modular JavaScript -->
+    <script type="module">
+        // Import all modules
+        import './js/core.js';
+        import './js/renderer.js';
+        import './js/ui.js';
+        import './js/utils.js';
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('TROMKLUB Modular Application loaded successfully! 🥁');
+        });
+    </script>
+
+    <!-- Fallback for older browsers -->
+    <script>
+        // Check if modules are supported
+        if (!window.modules) {
+            console.warn('ES6 Modules not fully supported. Loading fallback scripts...');
+            
+            // You could add fallback script loading here if needed
+            // For now, modern browsers should handle modules fine
+        }
+    </script>
+</body>
+</html>
