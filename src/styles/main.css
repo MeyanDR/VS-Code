@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-white;
+  }
+}
+
+@layer components {
+  .step-cell {
+    @apply w-8 h-8 border border-gray-300 hover:bg-white/10 cursor-pointer transition-all flex items-center justify-center relative;
+  }
+  
+  .step-cell.active {
+    @apply bg-cyan-600/30 border-cyan-400;
+  }
+  
+  .step-cell.beat-start {
+    @apply border-l-2 border-l-gray-500;
+  }
+  
+  .step-cell.bar-start {
+    @apply border-l-4 border-l-gray-700;
+  }
+  
+  /* Pattern Editor Styles */
+  .pattern-editor {
+    @apply flex flex-col gap-4;
+  }
+  
+  .pattern-type-btn.active,
+  .note-type-btn.active,
+  .modifier-btn.active {
+    @apply bg-cyan-600 text-white;
+  }
+  
+  .midi-import-zone.dragover {
+    @apply border-cyan-400 bg-slate-700/50;
+  }
+  
+  /* Instrument Row Styles */
+  .instrument-wrapper {
+    @apply relative;
+  }
+  
+  .instrument-wrapper:hover .drag-handle {
+    @apply opacity-100;
+  }
+  
+  .drag-handle {
+    @apply opacity-50 transition-opacity;
+  }
+  
+  /* Song Structure Styles */
+  .song-structure-content {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  .section-card {
+    @apply transition-all duration-200;
+  }
+  
+  .section-card.dragging {
+    @apply opacity-50;
+  }
+  
+  .section-card.drag-over {
+    @apply border-t-2 border-cyan-400;
+  }
+  
+  /* Selection Styles */
+  .drum-step.selected {
+    @apply bg-cyan-500/20 border-cyan-400;
+  }
+  
+  .drum-step.clipboard {
+    @apply border-2 border-dashed border-yellow-400;
+  }
+  
+  /* Modal Styles */
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50;
+  }
+  
+  .modal-content {
+    @apply bg-slate-800 rounded-lg p-6 max-w-md w-full;
+  }
+  
+  /* Button Styles */
+  .btn-primary {
+    @apply px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors;
+  }
+  
+  .btn-danger {
+    @apply px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded transition-colors;
+  }
+  
+  .btn-success {
+    @apply px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded transition-colors;
+  }
+  
+  /* Scrollbar Styles */
+  .pattern-editor::-webkit-scrollbar,
+  .song-structure::-webkit-scrollbar {
+    @apply w-2;
+  }
+  
+  .pattern-editor::-webkit-scrollbar-track,
+  .song-structure::-webkit-scrollbar-track {
+    @apply bg-slate-800;
+  }
+  
+  .pattern-editor::-webkit-scrollbar-thumb,
+  .song-structure::-webkit-scrollbar-thumb {
+    @apply bg-slate-600 rounded;
+  }
+  
+  .pattern-editor::-webkit-scrollbar-thumb:hover,
+  .song-structure::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-500;
+  }
+}

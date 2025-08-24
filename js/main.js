@@ -28,7 +28,7 @@ class TromklubApp {
     async init() {
         if (this.initialized) return;
         
-        console.log('🥁 TROMKLUB Machine - Initializing...');
+        console.log('TROMKLUB Machine - Initializing...');
         
         try {
             // Apply default theme
@@ -55,7 +55,7 @@ class TromklubApp {
             }
             
             this.initialized = true;
-            console.log('✅ TROMKLUB Machine - Ready!');
+            console.log('TROMKLUB Machine - Ready!');
             
         } catch (error) {
             console.error('Failed to initialize app:', error);
