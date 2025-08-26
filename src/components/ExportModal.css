@@ -1,0 +1,162 @@
+.export-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.export-modal-content {
+  background: #1e293b;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  width: 700px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.export-modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.export-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #fff;
+}
+
+.export-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.export-close-btn:hover {
+  background-color: #475569;
+}
+
+.export-modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  gap: 20px;
+}
+
+.export-settings {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.export-setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.export-setting-group label {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.export-setting-group select {
+  padding: 8px;
+  border: 1px solid #475569;
+  background: #334155;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.export-preview-section {
+  flex: 1.5;
+}
+
+.export-preview-section h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+  color: #94a3b8;
+}
+
+.export-preview-container {
+  border: 1px solid #475569;
+  border-radius: 4px;
+  padding: 10px;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+#export-preview-canvas {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #334155;
+  background: white;
+}
+
+.export-modal-footer {
+  padding: 20px;
+  border-top: 1px solid #334155;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.export-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.export-btn-primary {
+  background: #10b981;
+  color: white;
+}
+
+.export-btn-primary:hover:not(:disabled) {
+  background: #059669;
+}
+
+.export-btn-secondary {
+  background: #475569;
+  color: white;
+}
+
+.export-btn-secondary:hover {
+  background: #334155;
+}
+
+.export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

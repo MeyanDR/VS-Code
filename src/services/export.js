@@ -6,6 +6,7 @@ import { getProjectName } from '../core/selectors.js'
 class ExportService {
   async exportAsImage(format = 'png') {
     try {
+      console.log('🎼 Rendering PROFESSIONAL drum sheet...')
       const gridElement = document.querySelector('#drum-grid')
       if (!gridElement) {
         console.error('Grid element not found')

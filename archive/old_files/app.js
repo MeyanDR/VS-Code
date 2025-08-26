@@ -1,7 +1,9 @@
 import './styles/main.css'
 import { store } from './core/state.js'
+import { Header } from './components/Header.js'
 import { Grid } from './components/Grid.js'
 import { ControlPanel } from './components/ControlPanel.js'
+import { InstructionPanel } from './components/InstructionPanel.js'
 import { EditModal } from './components/EditModal.js'
 import { PatternEditor } from './components/PatternEditor.js'
 import { SongStructure } from './components/SongStructure.js'
@@ -20,7 +22,6 @@ class TromklubApp {
   }
 
   init() {
-    console.log('TROMKLUB: Initializing app...')
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         this.startApp()
@@ -32,15 +33,14 @@ class TromklubApp {
 
   startApp() {
     try {
-      console.log('TROMKLUB: Starting app...')
+      console.log('🥁 TROMKLUB Machine initializing...')
       this.setupContainer()
       this.render()
       this.bindEvents()
       this.loadSavedProject()
       storageService.startAutoSave()
-      console.log('TROMKLUB: App initialized successfully')
     } catch (error) {
-      console.error('TROMKLUB: Failed to initialize:', error)
+      console.error('Failed to initialize:', error)
     }
   }
 
@@ -52,13 +52,11 @@ class TromklubApp {
       document.body.appendChild(this.container)
     }
     
-    this.container.className = 'min-h-screen bg-slate-900'
+    this.container.className = 'min-h-screen bg-gradient-to-b from-slate-900 to-slate-950'
   }
 
   render() {
-    console.log('TROMKLUB: Rendering app...')
     const state = store.getState()
-    console.log('TROMKLUB: Current state:', state)
     
     this.container.innerHTML = ''
     
@@ -66,29 +64,27 @@ class TromklubApp {
     const layoutContainer = document.createElement('div')
     layoutContainer.className = 'flex flex-col h-screen'
     
-    // Header
-    const header = document.createElement('div')
-    header.className = 'px-8 py-4 bg-slate-900 border-b border-slate-700'
-    
-    const titleContainer = document.createElement('div')
-    titleContainer.className = 'flex flex-col'
-    
-    const title = document.createElement('h1')
-    title.className = 'text-5xl font-bold text-white mb-2 tracking-tight flex items-center gap-3'
-    title.innerHTML = '<span>🍎</span> The TROMKLUB machine'
-    titleContainer.appendChild(title)
-    
-    const subtitle = document.createElement('p')
-    subtitle.className = 'text-gray-400 text-lg ml-12'
-    subtitle.textContent = 'Made By Jan Heirman'
-    titleContainer.appendChild(subtitle)
-    
-    header.appendChild(titleContainer)
+    // Header with title and project name
+    const header = Header()
     layoutContainer.appendChild(header)
     
-    // Three-column layout
+    // Main content area
+    const mainContent = document.createElement('div')
+    mainContent.className = 'flex-1 overflow-auto px-6 py-4'
+    
+    // Control Panel and Grid Configuration
+    const controlPanel = ControlPanel()
+    if (controlPanel) {
+      mainContent.appendChild(controlPanel)
+    }
+    
+    // Instruction Panel
+    const instructionPanel = InstructionPanel()
+    mainContent.appendChild(instructionPanel)
+    
+    // Three-column layout for pattern editor, grid, and structure
     const contentWrapper = document.createElement('div')
-    contentWrapper.className = 'flex flex-1 overflow-hidden'
+    contentWrapper.className = 'flex gap-4 mt-4'
     
     // Left Panel - Pattern Editor
     const patternEditor = new PatternEditor(state, actions)
@@ -96,24 +92,13 @@ class TromklubApp {
     const leftPanel = patternEditor.render()
     contentWrapper.appendChild(leftPanel)
     
-    // Center Content
+    // Center - Grid and Song Structure
     const centerContent = document.createElement('div')
-    centerContent.className = 'flex-1 flex flex-col overflow-auto p-8'
-    
-    const controlPanel = ControlPanel()
-    if (controlPanel) {
-      console.log('TROMKLUB: ControlPanel rendered')
-      centerContent.appendChild(controlPanel)
-    } else {
-      console.error('TROMKLUB: ControlPanel returned null/undefined')
-    }
+    centerContent.className = 'flex-1 flex flex-col gap-4'
     
     const grid = Grid()
     if (grid) {
-      console.log('TROMKLUB: Grid rendered')
       centerContent.appendChild(grid)
-    } else {
-      console.error('TROMKLUB: Grid returned null/undefined')
     }
     
     // Song Structure component
@@ -122,14 +107,9 @@ class TromklubApp {
     centerContent.appendChild(songStructure.render())
     
     contentWrapper.appendChild(centerContent)
+    mainContent.appendChild(contentWrapper)
     
-    // Right Panel (placeholder for future features)
-    const rightPanel = document.createElement('div')
-    rightPanel.className = 'w-64 bg-slate-800 border-l border-slate-700 p-4'
-    rightPanel.style.display = 'none' // Hide for now
-    contentWrapper.appendChild(rightPanel)
-    
-    layoutContainer.appendChild(contentWrapper)
+    layoutContainer.appendChild(mainContent)
     this.container.appendChild(layoutContainer)
     
     // Add Symbol Legend
@@ -204,9 +184,7 @@ class TromklubApp {
   }
 }
 
-console.log('TROMKLUB: Creating app instance...')
 const app = new TromklubApp()
-console.log('TROMKLUB: App instance created')
 
 window.tromklub = {
   store,
@@ -214,4 +192,3 @@ window.tromklub = {
   storageService,
   midiService
 }
-console.log('TROMKLUB: Global tromklub object attached to window')

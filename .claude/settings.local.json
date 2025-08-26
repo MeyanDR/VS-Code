@@ -22,7 +22,11 @@
       "Bash(open \"http://localhost:3000\")",
       "Bash(npm run dev:*)",
       "Bash(lsof:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(cd:*)",
+      "Bash(npm install:*)",
+      "Bash(npm ls:*)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [

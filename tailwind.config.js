@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./src/**/*.{html,js}", "./index.html"],
+  content: ["./src/**/*.{html,js,jsx}", "./index.html"],
   theme: {
     extend: {
       colors: {
@@ -12,14 +12,38 @@ export default {
           'ghost': '#6b7280',
         },
         'grid': {
-          'line': '#e5e7eb',
-          'beat': '#9ca3af',
-          'bar': '#374151',
+          'line': '#3a4556',
+          'beat': '#4a5568',
+          'bar': '#5a6578',
+          'active': '#4dd0e1',
+        },
+        'daw': {
+          'bg-primary': '#1a2332',
+          'bg-secondary': '#2a3f5f',
+          'bg-panel': '#243447',
+          'border': '#3a4556',
+          'accent': '#4dd0e1',
+          'accent-hover': '#5de0f1',
+          'text-primary': '#e2e8f0',
+          'text-secondary': '#a0aec0',
+          'text-dim': '#718096',
+          'button': '#374151',
+          'button-hover': '#4b5563',
+          'success': '#10b981',
+          'warning': '#f59e0b',
+          'danger': '#ef4444',
         }
       },
       spacing: {
         'step': '2rem',
-      }
+      },
+      fontFamily: {
+        'mono': ['SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'monospace'],
+      },
+      boxShadow: {
+        'panel': '0 2px 8px rgba(0, 0, 0, 0.3)',
+        'button': '0 1px 3px rgba(0, 0, 0, 0.2)',
+      },
     }
   },
   plugins: [],

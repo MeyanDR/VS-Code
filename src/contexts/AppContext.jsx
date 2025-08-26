@@ -1,4 +1,6 @@
-export const initialState = {
+import React, { createContext, useContext, useReducer, useEffect } from 'react'
+
+const initialState = {
   project: {
     name: 'Untitled',
     sections: {
@@ -121,84 +123,7 @@ export const initialState = {
   }
 }
 
-class Store {
-  constructor(initialState) {
-    this.state = initialState
-    this.listeners = []
-  }
-
-  getState() {
-    return this.state
-  }
-
-  dispatch(action) {
-    this.state = rootReducer(this.state, action)
-    this.listeners.forEach(listener => listener(this.state))
-  }
-
-  subscribe(listener) {
-    this.listeners.push(listener)
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== listener)
-    }
-  }
-}
-
-function rootReducer(state = initialState, action) {
-  // Save current state for history before processing
-  const prevState = state
-  
-  const newState = {
-    project: projectReducer(state.project, action),
-    ui: uiReducer(state.ui, action),
-    layout: layoutReducer(state.layout, action),
-    breaks: breaksReducer(state.breaks, action),
-    history: historyReducer(state.history, action, prevState),
-    themes: themesReducer(state.themes, action),
-    midi: midiReducer(state.midi, action)
-  }
-  
-  // Handle undo/redo actions
-  if (action.type === 'UNDO' && state.history.past.length > 0) {
-    const previous = state.history.past[state.history.past.length - 1]
-    const newPast = state.history.past.slice(0, state.history.past.length - 1)
-    return {
-      ...previous,
-      history: {
-        past: newPast,
-        present: previous,
-        future: [state, ...state.history.future]
-      }
-    }
-  }
-  
-  if (action.type === 'REDO' && state.history.future.length > 0) {
-    const next = state.history.future[0]
-    const newFuture = state.history.future.slice(1)
-    return {
-      ...next,
-      history: {
-        past: [...state.history.past, state],
-        present: next,
-        future: newFuture
-      }
-    }
-  }
-  
-  // For actions that should be added to history
-  if (shouldAddToHistory(action)) {
-    return {
-      ...newState,
-      history: {
-        past: [...state.history.past, state].slice(-50), // Keep last 50 states
-        present: newState,
-        future: []
-      }
-    }
-  }
-  
-  return newState
-}
+const AppContext = createContext()
 
 function shouldAddToHistory(action) {
   const historyActions = [
@@ -329,7 +254,6 @@ function projectReducer(state = initialState.project, action) {
       }
     
     case 'CLEAR_ALL':
-      // Clear all patterns in current section
       const section = state.sections[state.currentSection]
       return {
         ...state,
@@ -384,22 +308,18 @@ function uiReducer(state = initialState.ui, action) {
       return { ...state, isDragging: action.payload }
     
     case 'COPY_SELECTION':
-      // Store selected notes in clipboard
       return { ...state, clipboard: { type: 'copy', data: Array.from(state.selectedSteps) } }
     
     case 'CUT_SELECTION':
-      // Store selected notes in clipboard and mark for removal
       return { ...state, clipboard: { type: 'cut', data: Array.from(state.selectedSteps) } }
     
     case 'PASTE_SELECTION':
-      // Paste is handled in project reducer, just clear cut clipboard if needed
       if (state.clipboard?.type === 'cut') {
         return { ...state, clipboard: null, selectedSteps: new Set() }
       }
       return state
     
     case 'SET_PATTERN_TYPE':
-      // Store pattern type preference
       return { ...state, patternType: action.payload }
     
     default:
@@ -478,7 +398,6 @@ function breaksReducer(state = initialState.breaks, action) {
 }
 
 function historyReducer(state = initialState.history, action, prevState) {
-  // History is handled in rootReducer
   return state
 }
 
@@ -510,4 +429,111 @@ function themesReducer(state = initialState.themes, action) {
   }
 }
 
-export const store = new Store(initialState)
+function rootReducer(state = initialState, action) {
+  const prevState = state
+  
+  const newState = {
+    project: projectReducer(state.project, action),
+    ui: uiReducer(state.ui, action),
+    layout: layoutReducer(state.layout, action),
+    breaks: breaksReducer(state.breaks, action),
+    history: historyReducer(state.history, action, prevState),
+    themes: themesReducer(state.themes, action),
+    midi: midiReducer(state.midi, action)
+  }
+  
+  if (action.type === 'UNDO' && state.history.past.length > 0) {
+    const previous = state.history.past[state.history.past.length - 1]
+    const newPast = state.history.past.slice(0, state.history.past.length - 1)
+    return {
+      ...previous,
+      history: {
+        past: newPast,
+        present: previous,
+        future: [state, ...state.history.future]
+      }
+    }
+  }
+  
+  if (action.type === 'REDO' && state.history.future.length > 0) {
+    const next = state.history.future[0]
+    const newFuture = state.history.future.slice(1)
+    return {
+      ...next,
+      history: {
+        past: [...state.history.past, state],
+        present: next,
+        future: newFuture
+      }
+    }
+  }
+  
+  if (shouldAddToHistory(action)) {
+    return {
+      ...newState,
+      history: {
+        past: [...state.history.past, state].slice(-50),
+        present: newState,
+        future: []
+      }
+    }
+  }
+  
+  return newState
+}
+
+export function AppProvider({ children }) {
+  const [state, dispatch] = useReducer(rootReducer, initialState)
+
+  // Auto-save to localStorage
+  useEffect(() => {
+    const saveInterval = setInterval(() => {
+      localStorage.setItem('tromklub_autosave', JSON.stringify(state))
+    }, 5000)
+
+    return () => clearInterval(saveInterval)
+  }, [state])
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('tromklub_autosave')
+    if (saved) {
+      try {
+        const parsedState = JSON.parse(saved)
+        // Convert selectedSteps back to Set
+        if (parsedState.ui && Array.isArray(parsedState.ui.selectedSteps)) {
+          parsedState.ui.selectedSteps = new Set(parsedState.ui.selectedSteps)
+        }
+        dispatch({ type: 'LOAD_PROJECT', payload: parsedState.project })
+      } catch (error) {
+        console.error('Failed to load saved state:', error)
+      }
+    }
+  }, [])
+
+  // Save before unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      localStorage.setItem('tromklub_autosave', JSON.stringify(state))
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [state])
+
+  return (
+    <AppContext.Provider value={{ state, dispatch }}>
+      {children}
+    </AppContext.Provider>
+  )
+}
+
+export function useAppState() {
+  const context = useContext(AppContext)
+  if (!context) {
+    throw new Error('useAppState must be used within AppProvider')
+  }
+  return context
+}
+
+export default AppContext
