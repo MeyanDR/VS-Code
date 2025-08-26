@@ -6,7 +6,6 @@
       "Bash(sed:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(sed:*)",
       "Bash(mkdir:*)",
       "Bash(cd:*)",
       "Bash(npx:*)",
@@ -21,11 +20,9 @@
       "Bash(cp:*)",
       "Bash(open:*)",
       "Bash(open \"http://localhost:3000\")",
-      "Bash(cd:*)",
       "Bash(npm run dev:*)",
       "Bash(lsof:*)",
-      "Bash(rm:*)",
-      "Bash(cd:*)"
+      "Bash(rm:*)"
     ],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
