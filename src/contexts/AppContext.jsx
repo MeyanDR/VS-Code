@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react'
+import { migrateProjectToNewFormat } from '../utils/patternMigration'
 
 const initialState = {
   project: {
@@ -53,7 +54,8 @@ const initialState = {
         grid: {
           bars: 4,
           beats: 4,
-          subdivisions: 4
+          subdivisions: 4,  // Keep for backward compatibility
+          beatSubdivisions: Array(16).fill(4)  // 4 bars * 4 beats = 16 beats total
         }
       }
     },
@@ -128,7 +130,8 @@ const AppContext = createContext()
 function shouldAddToHistory(action) {
   const historyActions = [
     'ADD_NOTE', 'REMOVE_NOTE', 'UPDATE_NOTE', 'CLEAR_ALL',
-    'UPDATE_GRID', 'PASTE_SELECTION', 'CUT_SELECTION'
+    'UPDATE_GRID', 'PASTE_SELECTION', 'CUT_SELECTION',
+    'UPDATE_BEAT_SUBDIVISION'
   ]
   return historyActions.includes(action.type)
 }
@@ -141,20 +144,38 @@ function projectReducer(state = initialState.project, action) {
       if (!instrument) return state
       
       const newPattern = [...instrument.pattern]
-      const existingIndex = newPattern.findIndex(n => n.position === action.payload.position)
+      
+      // Calculate position from beat and subdivision if provided
+      let position = action.payload.position
+      if (action.payload.beatIndex !== undefined && action.payload.subdivision !== undefined) {
+        position = 0
+        const beatSubdivisions = section.grid.beatSubdivisions || Array(section.grid.bars * section.grid.beats).fill(section.grid.subdivisions)
+        for (let i = 0; i < action.payload.beatIndex; i++) {
+          position += beatSubdivisions[i] || 4
+        }
+        position += action.payload.subdivision
+      }
+      
+      // Find existing note at this position
+      const existingIndex = newPattern.findIndex(n => {
+        if (action.payload.beatIndex !== undefined && action.payload.subdivision !== undefined) {
+          return n.beatIndex === action.payload.beatIndex && n.subdivision === action.payload.subdivision
+        }
+        return n.position === position
+      })
+      
+      const newNote = {
+        position: position,
+        beatIndex: action.payload.beatIndex,
+        subdivision: action.payload.subdivision,
+        symbol: action.payload.symbol,
+        modifier: action.payload.modifier
+      }
       
       if (existingIndex >= 0) {
-        newPattern[existingIndex] = {
-          position: action.payload.position,
-          symbol: action.payload.symbol,
-          modifier: action.payload.modifier
-        }
+        newPattern[existingIndex] = newNote
       } else {
-        newPattern.push({
-          position: action.payload.position,
-          symbol: action.payload.symbol,
-          modifier: action.payload.modifier
-        })
+        newPattern.push(newNote)
       }
       
       return {
@@ -178,7 +199,12 @@ function projectReducer(state = initialState.project, action) {
       const instrument = section.instruments.find(i => i.id === action.payload.instrumentId)
       if (!instrument) return state
       
-      const newPattern = instrument.pattern.filter(n => n.position !== action.payload.position)
+      const newPattern = instrument.pattern.filter(n => {
+        if (action.payload.beatIndex !== undefined && action.payload.subdivision !== undefined) {
+          return !(n.beatIndex === action.payload.beatIndex && n.subdivision === action.payload.subdivision)
+        }
+        return n.position !== action.payload.position
+      })
       
       return {
         ...state,
@@ -201,11 +227,20 @@ function projectReducer(state = initialState.project, action) {
       const instrument = section.instruments.find(i => i.id === action.payload.instrumentId)
       if (!instrument) return state
       
-      const newPattern = instrument.pattern.map(n => 
-        n.position === action.payload.position
-          ? { ...n, symbol: action.payload.symbol, modifier: action.payload.modifier }
-          : n
-      )
+      const newPattern = instrument.pattern.map(n => {
+        const isTarget = action.payload.beatIndex !== undefined && action.payload.subdivision !== undefined
+          ? (n.beatIndex === action.payload.beatIndex && n.subdivision === action.payload.subdivision)
+          : n.position === action.payload.position
+        
+        if (isTarget) {
+          return {
+            ...n,
+            symbol: action.payload.symbol,
+            modifier: action.payload.modifier
+          }
+        }
+        return n
+      })
       
       return {
         ...state,
@@ -227,7 +262,8 @@ function projectReducer(state = initialState.project, action) {
       return { ...state, name: action.payload }
     
     case 'LOAD_PROJECT':
-      return action.payload
+      // Migrate project to new format if needed
+      return migrateProjectToNewFormat(action.payload)
     
     case 'IMPORT_MIDI_PATTERN':
       return {
@@ -252,6 +288,28 @@ function projectReducer(state = initialState.project, action) {
           }
         }
       }
+    
+    case 'UPDATE_BEAT_SUBDIVISION': {
+      const section = state.sections[state.currentSection]
+      const beatIndex = action.payload.beatIndex
+      const newSubdivision = action.payload.subdivision
+      const newBeatSubdivisions = [...section.grid.beatSubdivisions]
+      newBeatSubdivisions[beatIndex] = newSubdivision
+      
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            grid: {
+              ...section.grid,
+              beatSubdivisions: newBeatSubdivisions
+            }
+          }
+        }
+      }
+    }
     
     case 'CLEAR_ALL':
       const section = state.sections[state.currentSection]
@@ -504,6 +562,7 @@ export function AppProvider({ children }) {
         if (parsedState.ui && Array.isArray(parsedState.ui.selectedSteps)) {
           parsedState.ui.selectedSteps = new Set(parsedState.ui.selectedSteps)
         }
+        // Load project with migration
         dispatch({ type: 'LOAD_PROJECT', payload: parsedState.project })
       } catch (error) {
         console.error('Failed to load saved state:', error)

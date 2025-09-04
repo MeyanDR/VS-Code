@@ -19,29 +19,36 @@ export default function Header() {
   }, [projectName])
 
   return (
-    <div className="header-container bg-gradient-to-r from-slate-900 to-slate-800 border-b-2 border-cyan-500/30 px-8 py-6">
-      <div className="flex flex-col items-center">
-        <div className="flex items-center gap-4 mb-2">
-          <span className="text-5xl">🥁</span>
-          <h1 className="text-5xl font-bold">
-            The <span className="text-cyan-400">TROMKLUB</span> <span className="text-cyan-300">machine</span>
-          </h1>
+    <div className="header-container bg-daw-bg-secondary border-b border-daw-border shadow-panel px-6 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">🥁</span>
+          <div>
+            <h1 className="text-2xl font-bold text-daw-text-primary">
+              The <span className="text-daw-accent">TROMKLUB</span> machine
+            </h1>
+            <p className="text-xs text-daw-text-dim">
+              Made By Jan Heirman
+            </p>
+          </div>
         </div>
         
-        <p className="text-gray-400 italic text-lg mb-4">
-          Made By Jan Heirman
-        </p>
-        
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <input
             type="text"
             value={projectName}
             onChange={handleProjectNameChange}
             onInput={handleInput}
-            className="bg-transparent text-2xl font-semibold text-white text-center border-b-2 border-transparent hover:border-cyan-500/50 focus:border-cyan-500 focus:outline-none px-2 py-1 transition-colors"
+            className="bg-daw-bg-panel text-lg font-medium text-daw-text-primary text-center 
+              border border-daw-border rounded-md px-3 py-1.5
+              hover:border-daw-accent/50 focus:border-daw-accent focus:outline-none 
+              focus:ring-1 focus:ring-daw-accent/30 transition-all"
             placeholder="Enter project name..."
             style={{ minWidth: '200px', width: `${inputWidth}px` }}
           />
+          <div className="text-xs text-daw-text-dim">
+            v1.0.0
+          </div>
         </div>
       </div>
     </div>

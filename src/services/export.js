@@ -2,6 +2,7 @@ import html2canvas from 'html2canvas'
 import { saveAs } from 'file-saver'
 import { store } from '../core/state.js'
 import { getProjectName } from '../core/selectors.js'
+import { convertBeatToPosition } from '../utils/patternMigration.js'
 
 class ExportService {
   async exportAsImage(format = 'png') {
@@ -83,7 +84,13 @@ class ExportService {
     const section = state.project.sections[state.project.currentSection]
     const instruments = section.instruments
     const grid = section.grid
-    const totalSteps = grid.bars * grid.beats * grid.subdivisions
+    const { beatSubdivisions = Array(grid.bars * grid.beats).fill(grid.subdivisions) } = grid
+    
+    // Calculate total steps with variable subdivisions
+    let totalSteps = 0
+    for (let i = 0; i < beatSubdivisions.length; i++) {
+      totalSteps += beatSubdivisions[i]
+    }
     
     const stepSize = 20
     const labelWidth = 100
@@ -101,18 +108,40 @@ class ExportService {
         .bar-line { stroke: #9ca3af; stroke-width: 2; }
       </style>`
     
-    for (let i = 0; i <= totalSteps; i++) {
-      const x = labelWidth + (i * stepSize)
-      let strokeClass = 'grid-line'
-      
-      if (i % (grid.beats * grid.subdivisions) === 0) {
-        strokeClass = 'bar-line'
-      } else if (i % grid.subdivisions === 0) {
-        strokeClass = 'beat-line'
+    // Draw grid lines with variable subdivisions
+    let currentStep = 0
+    for (let bar = 0; bar < grid.bars; bar++) {
+      for (let beat = 0; beat < grid.beats; beat++) {
+        const beatIndex = bar * grid.beats + beat
+        const subdivisions = beatSubdivisions[beatIndex]
+        
+        // Draw bar line at start of bar
+        if (beat === 0) {
+          const x = labelWidth + (currentStep * stepSize)
+          svg += `<line x1="${x}" y1="30" x2="${x}" y2="${height}" class="bar-line"/>`
+        }
+        
+        // Draw beat and subdivision lines
+        for (let subdiv = 0; subdiv < subdivisions; subdiv++) {
+          if (subdiv > 0) {
+            const x = labelWidth + ((currentStep + subdiv) * stepSize)
+            svg += `<line x1="${x}" y1="30" x2="${x}" y2="${height}" class="grid-line"/>`
+          }
+        }
+        
+        currentStep += subdivisions
+        
+        // Draw beat line at end of beat (if not last beat of bar)
+        if (beat < grid.beats - 1) {
+          const x = labelWidth + (currentStep * stepSize)
+          svg += `<line x1="${x}" y1="30" x2="${x}" y2="${height}" class="beat-line"/>`
+        }
       }
-      
-      svg += `<line x1="${x}" y1="30" x2="${x}" y2="${height}" class="${strokeClass}"/>`
     }
+    
+    // Draw final bar line
+    const x = labelWidth + (totalSteps * stepSize)
+    svg += `<line x1="${x}" y1="30" x2="${x}" y2="${height}" class="bar-line"/>`
     
     instruments.forEach((instrument, index) => {
       const y = 50 + (index * 30)
@@ -120,7 +149,15 @@ class ExportService {
       svg += `<text x="10" y="${y + 5}" class="label">${instrument.name}</text>`
       
       instrument.pattern.forEach(note => {
-        const x = labelWidth + (note.position * stepSize) + (stepSize / 2)
+        // Calculate position based on beat and subdivision
+        let position
+        if (note.beatIndex !== undefined && note.subdivision !== undefined) {
+          position = convertBeatToPosition(note.beatIndex, note.subdivision, grid)
+        } else {
+          position = note.position
+        }
+        
+        const x = labelWidth + (position * stepSize) + (stepSize / 2)
         svg += `<text x="${x}" y="${y + 5}" class="note">${note.symbol}</text>`
         
         if (note.modifier) {

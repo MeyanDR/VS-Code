@@ -132,34 +132,34 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Main Control Bar */}
-      <div className="bg-slate-800/80 backdrop-blur-sm p-3 rounded-lg border border-slate-700">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="px-4 py-2">
+        <div className="flex items-center gap-1">
           {/* Functions dropdown */}
           <div className="relative">
             <button
-              className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded transition-colors text-sm"
+              className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
               onClick={() => setShowFunctionsMenu(!showFunctionsMenu)}
             >
-              🔧 Functions
+              Functions
             </button>
             {showFunctionsMenu && (
-              <div className="absolute top-full left-0 mt-1 bg-slate-700 rounded shadow-lg z-50 min-w-[200px]">
+              <div className="absolute top-full left-0 mt-1 bg-daw-bg-panel border border-daw-border rounded shadow-lg z-50 min-w-[180px]">
                 <button
-                  className="w-full px-4 py-2 text-left text-white hover:bg-slate-600 transition-colors"
+                  className="w-full px-3 py-1.5 text-left text-daw-text-primary text-xs hover:bg-daw-button-hover transition-colors"
                   onClick={handleClearSelection}
                 >
                   Clear Selection
                 </button>
                 <button
-                  className="w-full px-4 py-2 text-left text-white hover:bg-slate-600 transition-colors"
+                  className="w-full px-3 py-1.5 text-left text-daw-text-primary text-xs hover:bg-daw-button-hover transition-colors"
                   onClick={handleSelectAll}
                 >
                   Select All
                 </button>
                 <button
-                  className="w-full px-4 py-2 text-left text-white hover:bg-slate-600 transition-colors"
+                  className="w-full px-3 py-1.5 text-left text-daw-text-primary text-xs hover:bg-daw-button-hover transition-colors"
                   onClick={() => {
                     console.log('TODO: Implement invert selection')
                     setShowFunctionsMenu(false)
@@ -167,9 +167,9 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
                 >
                   Invert Selection
                 </button>
-                <div className="border-t border-slate-600" />
+                <div className="border-t border-daw-border" />
                 <button
-                  className="w-full px-4 py-2 text-left text-white hover:bg-slate-600 transition-colors"
+                  className="w-full px-3 py-1.5 text-left text-daw-text-primary text-xs hover:bg-daw-button-hover transition-colors"
                   onClick={() => {
                     console.log('TODO: Implement duplicate pattern')
                     setShowFunctionsMenu(false)
@@ -178,7 +178,7 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
                   Duplicate Pattern
                 </button>
                 <button
-                  className="w-full px-4 py-2 text-left text-white hover:bg-slate-600 transition-colors"
+                  className="w-full px-3 py-1.5 text-left text-daw-text-primary text-xs hover:bg-daw-button-hover transition-colors"
                   onClick={() => {
                     console.log('TODO: Implement mirror pattern')
                     setShowFunctionsMenu(false)
@@ -191,70 +191,70 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
           </div>
 
           <button
-            className="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handleNew}
           >
-            ➕ New
+            New
           </button>
           
           <button
-            className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handleUndo}
           >
-            ↩ Undo
+            Undo
           </button>
           
           <button
-            className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handleRedo}
           >
-            ↪ Redo
+            Redo
           </button>
           
           <button
-            className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handleCut}
           >
-            ✂ Cut
+            Cut
           </button>
           
           <button
-            className="px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handleCopy}
           >
-            📋 Copy
+            Copy
           </button>
           
           <button
-            className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handlePaste}
           >
-            📌 Paste
+            Paste
           </button>
           
           <button
-            className="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handleSave}
           >
-            💾 Save
+            Save
           </button>
           
           <button
-            className="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handleLoad}
           >
-            📂 Load
+            Load
           </button>
           
           <button
-            className="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handleDownload}
           >
-            ⬇ Download
+            Download
           </button>
           
-          <label className="px-3 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded cursor-pointer transition-colors text-sm">
-            ⬆ Upload
+          <label className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded cursor-pointer transition-colors text-xs">
+            Upload
             <input
               ref={uploadInputRef}
               type="file"
@@ -265,24 +265,23 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
           </label>
           
           <button
-            className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary font-medium rounded text-xs transition-colors"
             onClick={handleClear}
           >
-            🗑 Clear
+            Clear
           </button>
           
           <button
-            className="px-3 py-2 bg-pink-600 hover:bg-pink-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-accent hover:bg-daw-accent-hover text-daw-bg-primary font-medium rounded text-xs transition-colors"
             onClick={() => onExport('custom')}
           >
-            📤 Export
+            Export
           </button>
-        </div>
-      </div>
-
-      {/* Grid Configuration Bar */}
-      <div className="bg-slate-800/80 backdrop-blur-sm p-3 rounded-lg border border-slate-700">
-        <div className="flex items-center gap-4">
+          
+          <div className="border-l border-daw-border h-6 mx-2" />
+          
+          {/* Grid Configuration */}
+          <div className="flex items-center gap-2">
           <NumberInput
             label="Bars"
             value={gridValues.bars}
@@ -302,52 +301,15 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
           />
           
           <button
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded transition-colors text-sm"
+            className="px-3 py-1.5 bg-daw-accent hover:bg-daw-accent-hover text-daw-bg-primary font-medium rounded text-xs transition-colors"
             onClick={handleUpdateGrid}
           >
             Update Grid
           </button>
-          
-          <button
-            className="ml-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-full transition-colors text-lg w-10 h-10 flex items-center justify-center"
-            title="Add new section"
-            onClick={() => console.log('TODO: Add new section')}
-          >
-            +
-          </button>
+          </div>
         </div>
       </div>
 
-      {/* Section Information Panel */}
-      <div className="bg-slate-800/80 backdrop-blur-sm p-4 rounded-lg border border-slate-700">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <input
-              type="text"
-              value={section ? section.name : 'Intro'}
-              onChange={handleSectionNameChange}
-              className="bg-transparent text-xl font-bold text-cyan-400 focus:outline-none focus:bg-slate-700 px-2 py-1 rounded"
-            />
-            <span className="text-gray-400 text-sm">
-              {section 
-                ? `${section.grid.bars} bars × ${section.grid.beats} beats × ${section.grid.subdivisions} subdivision`
-                : '4 bars × 4 beats × 4 subdivision'}
-            </span>
-          </div>
-        </div>
-        
-        <label className="text-cyan-400 text-sm font-semibold block mb-2">
-          Section Notes:
-        </label>
-        
-        <textarea
-          className="w-full bg-slate-700/50 text-gray-300 p-3 rounded border border-slate-600 focus:border-cyan-500 focus:outline-none resize-none"
-          placeholder="Add notes about this section..."
-          rows={2}
-          value={section?.notes || ''}
-          onChange={handleSectionNotesChange}
-        />
-      </div>
     </div>
   )
 }
@@ -362,11 +324,11 @@ function NumberInput({ label, value, onChange }) {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-gray-400 text-sm">{label}:</span>
+    <div className="flex items-center gap-1">
+      <span className="text-daw-text-secondary text-xs">{label}:</span>
       
       <button
-        className="w-6 h-6 bg-slate-600 hover:bg-slate-500 text-white rounded flex items-center justify-center text-sm"
+        className="w-5 h-5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary rounded flex items-center justify-center text-xs"
         onClick={handleDecrement}
       >
         -
@@ -378,11 +340,11 @@ function NumberInput({ label, value, onChange }) {
         onChange={(e) => onChange(parseInt(e.target.value))}
         min="1"
         max="32"
-        className="w-12 bg-slate-700 text-white text-center rounded border border-slate-600 focus:border-cyan-500 focus:outline-none"
+        className="w-10 bg-daw-bg-panel text-daw-text-primary text-center text-xs rounded border border-daw-border focus:border-daw-accent focus:outline-none"
       />
       
       <button
-        className="w-6 h-6 bg-slate-600 hover:bg-slate-500 text-white rounded flex items-center justify-center text-sm"
+        className="w-5 h-5 bg-daw-button hover:bg-daw-button-hover text-daw-text-primary rounded flex items-center justify-center text-xs"
         onClick={handleIncrement}
       >
         +

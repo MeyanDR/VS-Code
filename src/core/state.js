@@ -51,7 +51,8 @@ export const initialState = {
         grid: {
           bars: 4,
           beats: 4,
-          subdivisions: 4
+          subdivisions: 4,  // Keep for backward compatibility
+          beatSubdivisions: Array(16).fill(4)  // 4 bars * 4 beats = 16 beats total
         }
       }
     },
@@ -203,7 +204,8 @@ function rootReducer(state = initialState, action) {
 function shouldAddToHistory(action) {
   const historyActions = [
     'ADD_NOTE', 'REMOVE_NOTE', 'UPDATE_NOTE', 'CLEAR_ALL',
-    'UPDATE_GRID', 'PASTE_SELECTION', 'CUT_SELECTION'
+    'UPDATE_GRID', 'PASTE_SELECTION', 'CUT_SELECTION',
+    'UPDATE_BEAT_SUBDIVISION'
   ]
   return historyActions.includes(action.type)
 }
@@ -327,6 +329,28 @@ function projectReducer(state = initialState.project, action) {
           }
         }
       }
+    
+    case 'UPDATE_BEAT_SUBDIVISION': {
+      const section = state.sections[state.currentSection]
+      const beatIndex = action.payload.beatIndex
+      const newSubdivision = action.payload.subdivision
+      const newBeatSubdivisions = [...section.grid.beatSubdivisions]
+      newBeatSubdivisions[beatIndex] = newSubdivision
+      
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            grid: {
+              ...section.grid,
+              beatSubdivisions: newBeatSubdivisions
+            }
+          }
+        }
+      }
+    }
     
     case 'CLEAR_ALL':
       // Clear all patterns in current section

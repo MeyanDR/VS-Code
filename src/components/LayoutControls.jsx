@@ -13,16 +13,16 @@ export default function LayoutControls() {
   }
   
   return (
-    <div className="bg-slate-800/80 backdrop-blur-sm p-4 rounded-lg border border-slate-700 mt-3">
-      <h3 className="text-cyan-400 font-bold mb-4">Layout Settings</h3>
-      
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <label className="text-gray-300 text-sm block mb-1">Page Size</label>
+    <div className="px-4 py-2 border-t border-daw-border">
+      <div className="flex items-center gap-4">
+        <span className="text-xs text-daw-text-secondary font-semibold">Layout:</span>
+        
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-daw-text-dim">Page:</label>
           <select
             value={layout.pageSize}
             onChange={(e) => handleLayoutChange('pageSize', e.target.value)}
-            className="w-full bg-slate-700 text-white px-3 py-2 rounded"
+            className="bg-daw-bg-panel text-daw-text-primary text-xs px-2 py-1 rounded border border-daw-border focus:border-daw-accent focus:outline-none"
           >
             <option value="A4">A4</option>
             <option value="Letter">Letter</option>
@@ -30,20 +30,20 @@ export default function LayoutControls() {
           </select>
         </div>
         
-        <div>
-          <label className="text-gray-300 text-sm block mb-1">Orientation</label>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-daw-text-dim">Orientation:</label>
           <select
             value={layout.orientation}
             onChange={(e) => handleLayoutChange('orientation', e.target.value)}
-            className="w-full bg-slate-700 text-white px-3 py-2 rounded"
+            className="bg-daw-bg-panel text-daw-text-primary text-xs px-2 py-1 rounded border border-daw-border focus:border-daw-accent focus:outline-none"
           >
             <option value="portrait">Portrait</option>
             <option value="landscape">Landscape</option>
           </select>
         </div>
         
-        <div>
-          <label className="text-gray-300 text-sm block mb-1">Text Scale</label>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-daw-text-dim">Scale:</label>
           <input
             type="range"
             min="0.5"
@@ -51,41 +51,41 @@ export default function LayoutControls() {
             step="0.1"
             value={layout.textScale}
             onChange={(e) => handleLayoutChange('textScale', parseFloat(e.target.value))}
-            className="w-full"
+            className="w-20"
           />
-          <span className="text-gray-400 text-xs">{layout.textScale.toFixed(1)}x</span>
+          <span className="text-xs text-daw-text-secondary">{layout.textScale.toFixed(1)}x</span>
         </div>
-      </div>
-      
-      <div className="flex gap-4 mt-4">
-        <label className="flex items-center gap-2 text-gray-300">
+        
+        <div className="border-l border-daw-border h-4 mx-1" />
+        
+        <label className="flex items-center gap-1 text-xs text-daw-text-primary">
           <input
             type="checkbox"
             checked={layout.showBarNumbers}
             onChange={(e) => handleLayoutChange('showBarNumbers', e.target.checked)}
-            className="rounded"
+            className="rounded w-3 h-3"
           />
-          Show Bar Numbers
+          Bar Numbers
         </label>
         
-        <label className="flex items-center gap-2 text-gray-300">
+        <label className="flex items-center gap-1 text-xs text-daw-text-primary">
           <input
             type="checkbox"
             checked={layout.showBeatNumbers}
             onChange={(e) => handleLayoutChange('showBeatNumbers', e.target.checked)}
-            className="rounded"
+            className="rounded w-3 h-3"
           />
-          Show Beat Numbers
+          Beat Numbers
         </label>
         
-        <label className="flex items-center gap-2 text-gray-300">
+        <label className="flex items-center gap-1 text-xs text-daw-text-primary">
           <input
             type="checkbox"
             checked={layout.showLegend}
             onChange={(e) => handleLayoutChange('showLegend', e.target.checked)}
-            className="rounded"
+            className="rounded w-3 h-3"
           />
-          Show Legend
+          Legend
         </label>
       </div>
     </div>

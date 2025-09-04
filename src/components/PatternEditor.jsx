@@ -15,19 +15,19 @@ export default function PatternEditor() {
   }
   
   return (
-    <div className="w-64 bg-slate-800/50 p-4 rounded-lg">
-      <h3 className="text-cyan-400 font-bold mb-4">Pattern Editor</h3>
+    <div className="bg-daw-bg-secondary rounded-lg p-3 border border-daw-border">
+      <h3 className="text-sm font-semibold text-daw-text-secondary mb-3">Pattern Type</h3>
       
-      <div className="mb-6">
-        <h4 className="text-gray-300 text-sm font-semibold mb-2">Symbols</h4>
-        <div className="grid grid-cols-5 gap-2">
+      <div className="mb-4">
+        <h4 className="text-xs text-daw-text-dim mb-2">Note Type</h4>
+        <div className="grid grid-cols-5 gap-1">
           {symbols.map(symbol => (
             <button
               key={symbol}
-              className={`p-2 rounded text-white font-bold transition-colors ${
+              className={`py-1.5 px-2 rounded text-xs font-bold transition-colors ${
                 state.ui.activeSymbol === symbol
-                  ? 'bg-cyan-600'
-                  : 'bg-slate-700 hover:bg-slate-600'
+                  ? 'bg-daw-accent text-daw-bg-primary'
+                  : 'bg-daw-button text-daw-text-primary hover:bg-daw-button-hover'
               }`}
               onClick={() => handleSymbolClick(symbol)}
             >
@@ -38,15 +38,15 @@ export default function PatternEditor() {
       </div>
       
       <div>
-        <h4 className="text-gray-300 text-sm font-semibold mb-2">Modifiers</h4>
-        <div className="grid grid-cols-3 gap-2">
+        <h4 className="text-xs text-daw-text-dim mb-2">Modifiers</h4>
+        <div className="grid grid-cols-3 gap-1">
           {modifiers.map(modifier => (
             <button
               key={modifier || 'none'}
-              className={`p-2 rounded text-white text-sm transition-colors ${
+              className={`py-1 px-2 rounded text-xs transition-colors ${
                 state.ui.activeModifier === modifier
-                  ? 'bg-cyan-600'
-                  : 'bg-slate-700 hover:bg-slate-600'
+                  ? 'bg-daw-accent text-daw-bg-primary'
+                  : 'bg-daw-button text-daw-text-primary hover:bg-daw-button-hover'
               }`}
               onClick={() => handleModifierClick(modifier)}
             >
@@ -56,11 +56,11 @@ export default function PatternEditor() {
         </div>
       </div>
       
-      <div className="mt-6 p-3 bg-slate-700/50 rounded">
-        <p className="text-gray-300 text-sm">
-          Active: <span className="text-cyan-400 font-bold">{state.ui.activeSymbol}</span>
+      <div className="mt-4 p-2 bg-daw-bg-panel rounded border border-daw-border">
+        <p className="text-xs text-daw-text-secondary">
+          Active: <span className="text-daw-accent font-bold">{state.ui.activeSymbol}</span>
           {state.ui.activeModifier && (
-            <span className="text-pink-400 ml-1">({state.ui.activeModifier})</span>
+            <span className="text-daw-warning ml-1">({state.ui.activeModifier})</span>
           )}
         </p>
       </div>
