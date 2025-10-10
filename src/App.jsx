@@ -10,6 +10,10 @@ import SongStructure from './components/SongStructure'
 import SymbolLegend from './components/SymbolLegend'
 import ExportModal from './components/ExportModal'
 import LayoutControls from './components/LayoutControls'
+import MidiImportModal from './components/MidiImportModal'
+import { Button } from './components/ui/button'
+import { Toaster } from './components/ui/toaster'
+import { useToast } from './hooks/useToast'
 import { useKeyboard } from './hooks/useKeyboard'
 import { useAutoSave } from './hooks/useAutoSave'
 import { useMidi } from './hooks/useMidi'
@@ -20,6 +24,8 @@ function AppContent() {
   const { state, dispatch } = useAppState()
   const [showExportModal, setShowExportModal] = useState(false)
   const [showLayoutControls, setShowLayoutControls] = useState(false)
+  const [showMidiImportModal, setShowMidiImportModal] = useState(false)
+  const [midiFileToImport, setMidiFileToImport] = useState(null)
   
   // Initialize all hooks
   useKeyboard(dispatch, state)
@@ -51,16 +57,36 @@ function AppContent() {
     }
   }
 
-  const handleMidiImport = async (file) => {
-    const success = await importMidiFile(file)
-    if (success) {
-      // Show notification
-      const notification = document.createElement('div')
-      notification.className = 'fixed top-4 right-4 px-4 py-2 rounded-lg bg-green-600 text-white font-medium z-50'
-      notification.textContent = 'MIDI imported successfully'
-      document.body.appendChild(notification)
-      setTimeout(() => document.body.removeChild(notification), 2000)
-    }
+  const handleMidiImport = (file) => {
+    setMidiFileToImport(file)
+    setShowMidiImportModal(true)
+  }
+  
+  const handleMidiImportConfirm = async (pattern, mapping, velocitySettings) => {
+    // Apply the pattern to state using the mapping and velocity settings
+    const instruments = state.project.sections[state.project.currentSection].instruments
+    
+    const updatedInstruments = instruments.map(instrument => {
+      const instrumentPattern = pattern[instrument.id] || []
+      return {
+        ...instrument,
+        pattern: instrumentPattern
+      }
+    })
+    
+    dispatch({ type: 'IMPORT_MIDI_PATTERN', payload: { instruments: updatedInstruments } })
+    dispatch({ type: 'SET_MIDI_IMPORTED', payload: true })
+    
+    // Show success notification
+    const notification = document.createElement('div')
+    notification.className = 'fixed top-4 right-4 px-4 py-2 rounded-lg bg-green-600 text-white font-medium z-50'
+    notification.textContent = 'MIDI imported successfully'
+    document.body.appendChild(notification)
+    setTimeout(() => document.body.removeChild(notification), 2000)
+  }
+
+  const handleAddInstrument = () => {
+    dispatch({ type: 'ADD_INSTRUMENT' })
   }
 
   return (
@@ -84,6 +110,20 @@ function AppContent() {
           {/* Left Sidebar */}
           <div className="w-80 bg-daw-bg-panel border-r border-daw-border flex flex-col p-4 space-y-4 overflow-y-auto">
             <SongStructure />
+            
+            {/* Add Instrument Button */}
+            <div className="bg-daw-bg-secondary rounded-lg p-4 border border-daw-border">
+              <Button 
+                variant="success" 
+                size="default"
+                onClick={handleAddInstrument}
+                className="w-full flex items-center justify-center gap-2"
+              >
+                <span className="text-xl">+</span>
+                Add Instrument
+              </Button>
+            </div>
+            
             <SymbolLegend />
             <PatternEditor />
             
@@ -123,6 +163,19 @@ function AppContent() {
       {showExportModal && (
         <ExportModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} />
       )}
+      
+      {showMidiImportModal && (
+        <MidiImportModal 
+          isOpen={showMidiImportModal} 
+          onClose={() => {
+            setShowMidiImportModal(false)
+            setMidiFileToImport(null)
+          }}
+          file={midiFileToImport}
+          onImport={handleMidiImportConfirm}
+        />
+      )}
+      <Toaster />
     </div>
   )
 }

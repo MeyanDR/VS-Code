@@ -26,9 +26,11 @@ export const getStepPosition = (instrumentId, stepIndex) => {
   return `${instrumentId}-${stepIndex}`
 }
 
+import { parseStepKey } from '../lib/selection'
+
 export const parseStepPosition = (stepPosition) => {
-  const [instrumentId, stepIndex] = stepPosition.split('-')
-  return { instrumentId, stepIndex: parseInt(stepIndex) }
+  const { instrumentId, position } = parseStepKey(stepPosition)
+  return { instrumentId, stepIndex: parseInt(position) }
 }
 
 export const hasNoteAtPosition = (state, instrumentId, position) => {

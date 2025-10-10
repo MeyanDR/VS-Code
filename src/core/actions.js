@@ -29,11 +29,13 @@ export const actionTypes = {
   REORDER_INSTRUMENT: 'REORDER_INSTRUMENT',
   ADD_INSTRUMENT_GROUP: 'ADD_INSTRUMENT_GROUP',
   ADD_SECTION: 'ADD_SECTION',
+  DUPLICATE_SECTION: 'DUPLICATE_SECTION',
   DELETE_SECTION: 'DELETE_SECTION',
   REORDER_SECTION: 'REORDER_SECTION',
   UPDATE_SECTION: 'UPDATE_SECTION',
   IMPORT_MIDI: 'IMPORT_MIDI',
-  UPDATE_GRID: 'UPDATE_GRID'
+  UPDATE_GRID: 'UPDATE_GRID',
+  TOGGLE_STEP_SELECTION: 'TOGGLE_STEP_SELECTION'
 }
 
 export const addNote = (instrumentId, position, symbol = 'o', modifier = '') => ({
@@ -68,6 +70,11 @@ export const removeFromSelection = (stepId) => ({
 
 export const clearSelection = () => ({
   type: actionTypes.CLEAR_SELECTION
+})
+
+export const toggleStepSelection = (stepId) => ({
+  type: actionTypes.TOGGLE_STEP_SELECTION,
+  payload: stepId
 })
 
 export const setActiveSymbol = (symbol) => ({
@@ -173,6 +180,11 @@ export const addInstrumentGroup = (index) => ({
 export const addSection = (section) => ({
   type: actionTypes.ADD_SECTION,
   payload: section
+})
+
+export const duplicateSection = (sectionId) => ({
+  type: actionTypes.DUPLICATE_SECTION,
+  payload: sectionId
 })
 
 export const deleteSection = (sectionId) => ({

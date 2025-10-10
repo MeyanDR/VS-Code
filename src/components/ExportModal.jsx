@@ -3,7 +3,25 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { saveAs } from 'file-saver'
 import { useAppState } from '../contexts/AppContext'
-import './ExportModal.css'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from './ui/dialog'
+import { Button } from './ui/button'
+import { Label } from './ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select'
+import { Slider } from './ui/slider'
 
 const ExportModal = ({ isOpen, onClose }) => {
   const { state } = useAppState()
@@ -172,83 +190,128 @@ const ExportModal = ({ isOpen, onClose }) => {
     return svg
   }
 
-  if (!isOpen) return null
+  const qualityLabels = {
+    1: 'Low (72 DPI)',
+    2: 'Medium (144 DPI)',
+    3: 'High (216 DPI)',
+    4: 'Very High (288 DPI)'
+  }
 
   return (
-    <div className="export-modal-overlay" onClick={(e) => {
-      if (e.target === e.currentTarget) onClose()
-    }}>
-      <div className="export-modal-content">
-        <div className="export-modal-header">
-          <h2>Export Pattern</h2>
-          <button className="export-close-btn" onClick={onClose}>×</button>
-        </div>
-        
-        <div className="export-modal-body">
-          <div className="export-settings">
-            <div className="export-setting-group">
-              <label>Format</label>
-              <select value={format} onChange={(e) => setFormat(e.target.value)}>
-                <option value="pdf">PDF</option>
-                <option value="png">PNG</option>
-                <option value="svg">SVG</option>
-              </select>
-            </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[725px]">
+        <DialogHeader>
+          <DialogTitle>Export Pattern</DialogTitle>
+          <DialogDescription>
+            Choose format and settings for your drum pattern export.
+          </DialogDescription>
+        </DialogHeader>
 
-            {format === 'pdf' && (
-              <div className="export-setting-group">
-                <div className="export-setting-group">
-                  <label>Page Size</label>
-                  <select value={pageSize} onChange={(e) => setPageSize(e.target.value)}>
-                    <option value="A4">A4</option>
-                    <option value="Letter">Letter</option>
-                    <option value="Legal">Legal</option>
-                  </select>
-                </div>
+        <Tabs defaultValue="settings" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="settings" className="space-y-4">
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="format" className="text-right">
+                  Format
+                </Label>
+                <Select value={format} onValueChange={setFormat}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pdf">PDF</SelectItem>
+                    <SelectItem value="png">PNG</SelectItem>
+                    <SelectItem value="svg">SVG</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div className="export-setting-group">
-                  <label>Orientation</label>
-                  <select value={orientation} onChange={(e) => setOrientation(e.target.value)}>
-                    <option value="portrait">Portrait</option>
-                    <option value="landscape">Landscape</option>
-                  </select>
+              {format === 'pdf' && (
+                <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="pageSize" className="text-right">
+                      Page Size
+                    </Label>
+                    <Select value={pageSize} onValueChange={setPageSize}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A4">A4</SelectItem>
+                        <SelectItem value="Letter">Letter</SelectItem>
+                        <SelectItem value="Legal">Legal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="orientation" className="text-right">
+                      Orientation
+                    </Label>
+                    <Select value={orientation} onValueChange={setOrientation}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="portrait">Portrait</SelectItem>
+                        <SelectItem value="landscape">Landscape</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="quality" className="text-right">
+                  Quality
+                </Label>
+                <div className="col-span-3 space-y-2">
+                  <Slider
+                    id="quality"
+                    min={1}
+                    max={4}
+                    step={1}
+                    value={[quality]}
+                    onValueChange={(value) => setQuality(value[0])}
+                    className="w-full"
+                  />
+                  <span className="text-sm text-daw-text-secondary">
+                    {qualityLabels[quality]}
+                  </span>
                 </div>
               </div>
-            )}
-
-            <div className="export-setting-group">
-              <label>Quality (DPI)</label>
-              <select value={quality} onChange={(e) => setQuality(parseInt(e.target.value))}>
-                <option value="1">Low (72 DPI)</option>
-                <option value="2">Medium (144 DPI)</option>
-                <option value="3">High (216 DPI)</option>
-                <option value="4">Very High (288 DPI)</option>
-              </select>
             </div>
-          </div>
-
-          <div className="export-preview-section">
-            <h3>Preview</h3>
-            <div className="export-preview-container">
-              <canvas ref={previewRef} id="export-preview-canvas"></canvas>
+          </TabsContent>
+          
+          <TabsContent value="preview" className="mt-4">
+            <div className="border border-daw-border rounded-lg p-4">
+              <canvas 
+                ref={previewRef} 
+                className="w-full h-auto max-h-[400px] object-contain"
+              />
             </div>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
 
-        <div className="export-modal-footer">
-          <button className="export-btn export-btn-secondary" onClick={onClose}>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button 
-            className="export-btn export-btn-primary" 
+          </Button>
+          <Button 
+            variant="primary"
             onClick={handleExport}
             disabled={isExporting}
           >
             {isExporting ? 'Exporting...' : `Export as ${format.toUpperCase()}`}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

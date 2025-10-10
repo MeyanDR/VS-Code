@@ -6,45 +6,70 @@ export default function SubdivisionStep({
   beatIndex, 
   subdivisionIndex,
   note, 
-  isSelected 
+  isSelected,
+  stepIndex,
+  onMouseDown,
+  onMouseEnter,
+  onDoubleClick
 }) {
   const { state, dispatch } = useAppState()
   
   const handleClick = (e) => {
     e.stopPropagation()
     
-    if (note) {
-      // Open edit modal for existing note
-      dispatch({
-        type: 'OPEN_EDIT_MODAL',
-        payload: {
-          instrumentId,
-          beatIndex,
-          subdivision: subdivisionIndex,
-          symbol: note.symbol,
-          modifier: note.modifier,
-          position: note.position
-        }
-      })
+    // Use interaction handler if provided
+    if (onMouseDown) {
+      onMouseDown(instrumentId, stepIndex, e)
     } else {
-      // Add new note at subdivision
-      dispatch({
-        type: 'ADD_NOTE',
-        payload: {
-          instrumentId,
-          beatIndex,
-          subdivision: subdivisionIndex,
-          symbol: state.ui.activeSymbol,
-          modifier: state.ui.activeModifier
+      // Fallback for basic functionality
+      if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        if (note) {
+          // Open edit modal for existing note
+          dispatch({
+            type: 'OPEN_EDIT_MODAL',
+            payload: {
+              instrumentId,
+              beatIndex,
+              subdivision: subdivisionIndex,
+              symbol: note.symbol,
+              modifier: note.modifier,
+              position: stepIndex
+            }
+          })
+        } else {
+          // Add new note
+          dispatch({
+            type: 'ADD_NOTE',
+            payload: {
+              instrumentId,
+              beatIndex,
+              subdivision: subdivisionIndex,
+              symbol: state.ui.activeSymbol,
+              modifier: state.ui.activeModifier
+            }
+          })
         }
-      })
+      }
+    }
+  }
+  
+  const handleMouseEnter = (e) => {
+    if (onMouseEnter) {
+      onMouseEnter(instrumentId, stepIndex, e)
+    }
+  }
+  
+  const handleDoubleClick = (e) => {
+    e.stopPropagation()
+    if (onDoubleClick) {
+      onDoubleClick(instrumentId, stepIndex)
     }
   }
   
   return (
     <div
       className={`
-        w-full h-7 border rounded flex items-center justify-center relative
+        drum-step w-full h-7 border rounded flex items-center justify-center relative
         cursor-pointer transition-all duration-150 shadow-sm text-xs
         ${note 
           ? 'bg-cyan-700 border-cyan-500 text-white shadow-cyan-900/30' 
@@ -52,7 +77,15 @@ export default function SubdivisionStep({
         }
         ${isSelected ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-gray-900' : ''}
       `}
-      onClick={handleClick}
+      onMouseDown={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onDoubleClick={handleDoubleClick}
+      data-grid-cell
+      data-instrument-id={instrumentId}
+      data-step-index={stepIndex}
+      data-beat-index={beatIndex}
+      data-subdivision={subdivisionIndex}
+      data-has-note={!!note}
       title={`Step ${subdivisionIndex + 1}`}
     >
       {/* Note symbol */}
