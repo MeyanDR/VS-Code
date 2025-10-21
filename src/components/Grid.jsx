@@ -6,6 +6,8 @@ import StepEditModal from './StepEditModal'
 import BarRangeSelector from './BarRangeSelector'
 import EditableText from './EditableText'
 import InstrumentSettings from './InstrumentSettings'
+import GroupBrace from './GroupBrace'
+import GroupControls from './GroupControls'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { SortableInstrument } from './SortableInstrument'
@@ -32,7 +34,7 @@ export default function Grid({ interaction }) {
   
   if (!section) return null
   
-  const { instruments, grid } = section
+  const { instruments, grid, groups = [] } = section
   const beatSubdivisions = grid.beatSubdivisions || Array(grid.bars * grid.beats).fill(grid.subdivisions || 4)
   
   // Update barRanges when grid.bars changes
@@ -65,30 +67,16 @@ export default function Grid({ interaction }) {
   
   // Get note at specific beat and subdivision
   const getNoteAt = (instrument, beatIndex, subdivisionIndex) => {
-    return instrument.pattern.find(note => {
-      // Support both old and new formats
-      if (note.beatIndex !== undefined && note.subdivision !== undefined) {
-        return note.beatIndex === beatIndex && note.subdivision === subdivisionIndex
-      }
-      // Calculate from old position format
-      let position = 0
-      for (let i = 0; i < beatIndex; i++) {
-        position += beatSubdivisions[i] || 4
-      }
-      position += subdivisionIndex
-      return note.position === position
-    })
+    return instrument.pattern.find(note => 
+      note.beatIndex === beatIndex && note.subdivision === subdivisionIndex
+    )
   }
   
   // Check if a position is selected
   const isPositionSelected = (instrumentId, beatIndex, subdivisionIndex) => {
-    // Calculate position for selection tracking
-    let position = 0
-    for (let i = 0; i < beatIndex; i++) {
-      position += beatSubdivisions[i] || 4
-    }
-    position += subdivisionIndex
-    return state.ui.selectedSteps.has(`${instrumentId}-${position}`)
+    // Use the new selection key format: instrumentId-beatIndex-subdivision
+    const selectionKey = `${instrumentId}-${beatIndex}-${subdivisionIndex}`
+    return state.ui.selectedSteps.has(selectionKey)
   }
   
   // Handle subdivision change
@@ -115,10 +103,55 @@ export default function Grid({ interaction }) {
   }
   
   const handleUpdateInstrumentSettings = (instrumentId, settings) => {
+    console.log('🔧 [DEBUG] Updating instrument settings:', { instrumentId, settings })
     dispatch({
       type: 'UPDATE_INSTRUMENT_SETTINGS',
       payload: { instrumentId, settings }
     })
+  }
+  
+  const handleCreateGroup = (instrumentIds) => {
+    dispatch({
+      type: 'CREATE_GROUP',
+      payload: { instrumentIds }
+    })
+  }
+  
+  const handleUngroup = (groupId) => {
+    dispatch({
+      type: 'UNGROUP',
+      payload: { groupId }
+    })
+  }
+  
+  const handleToggleGroupCollapse = (groupId) => {
+    dispatch({
+      type: 'TOGGLE_GROUP_COLLAPSE',
+      payload: { groupId }
+    })
+  }
+  
+  const handleUpdateGroupName = (groupId, name) => {
+    dispatch({
+      type: 'UPDATE_GROUP_NAME',
+      payload: { groupId, name }
+    })
+  }
+  
+  // Helper to check if instrument is in a group
+  const getInstrumentGroup = (instrumentId) => {
+    return groups.find(g => g.instrumentIds.includes(instrumentId))
+  }
+  
+  // Helper to check if instrument should be visible based on group collapse
+  const isInstrumentVisibleInGroup = (instrument) => {
+    const group = getInstrumentGroup(instrument.id)
+    if (!group) return true
+    if (group.collapsed) {
+      // Only show first instrument in collapsed group
+      return group.instrumentIds[0] === instrument.id
+    }
+    return true
   }
   
   // Drag and drop handlers
@@ -273,10 +306,26 @@ export default function Grid({ interaction }) {
   
   // Render a single beat unit with FIXED width
   const renderBeatUnit = (instrument, barIndex, beatInBar) => {
+    // Keep using section grid for layout consistency, but use instrument subdivision
     const globalBeatIndex = barIndex * grid.beats + beatInBar
-    const subdivisionCount = beatSubdivisions[globalBeatIndex] || 4
+    
+    // Use beat-specific subdivision first, then instrument default, then global default
+    const subdivisionCount = beatSubdivisions[globalBeatIndex] || instrument.subdivision || 4
     const stepWidth = getStepWidth(subdivisionCount)
     const isVisible = instrument.visible !== false
+    
+    // DEBUG: Log subdivision priority
+    if (beatSubdivisions[globalBeatIndex] || instrument.subdivision) {
+      console.log('✅ [DEBUG] Subdivision priority:', {
+        instrumentId: instrument.id,
+        instrumentName: instrument.name,
+        'beatSubdivisions[globalBeatIndex]': beatSubdivisions[globalBeatIndex],
+        'instrument.subdivision': instrument.subdivision,
+        'final subdivisionCount': subdivisionCount,
+        'source': beatSubdivisions[globalBeatIndex] ? 'beat-specific' : 'instrument-default',
+        'globalBeatIndex': globalBeatIndex
+      })
+    }
     
     return (
       <div 
@@ -307,12 +356,6 @@ export default function Grid({ interaction }) {
               const note = getNoteAt(instrument, globalBeatIndex, subdivIndex)
               const isSelected = isPositionSelected(instrument.id, globalBeatIndex, subdivIndex)
               
-              // Calculate cumulative position for interaction handlers
-              let totalPosition = 0
-              for (let i = 0; i < globalBeatIndex; i++) {
-                totalPosition += beatSubdivisions[i] || 4
-              }
-              
               return (
                 <div
                   key={subdivIndex}
@@ -328,7 +371,6 @@ export default function Grid({ interaction }) {
                     subdivisionIndex={subdivIndex}
                     note={note}
                     isSelected={isSelected}
-                    stepIndex={totalPosition + subdivIndex}
                     onMouseDown={interaction?.handleCellMouseDown}
                     onMouseEnter={interaction?.handleCellMouseEnter}
                     onDoubleClick={interaction?.handleDoubleClick}
@@ -545,20 +587,101 @@ export default function Grid({ interaction }) {
                       items={instruments.map(i => i.id)}
                       strategy={verticalListSortingStrategy}
                     >
-                      {instruments.map((instrument, index) => (
-                        <SortableInstrument key={instrument.id} id={instrument.id}>
-                          {({ dragHandleProps, isDragging }) => {
-                            const isVisible = instrument.visible !== false
+                      {(() => {
+                        const processedIds = new Set()
+                        
+                        return instruments.map((instrument, index) => {
+                          // Skip if already processed as part of a group
+                          if (processedIds.has(instrument.id)) return null
+                          
+                          const group = getInstrumentGroup(instrument.id)
+                          const nextInstrument = instruments[index + 1]
+                          const canCreateGroupWithNext = !group && nextInstrument && !getInstrumentGroup(nextInstrument.id)
+                          
+                          if (group) {
+                            // Mark all group members as processed
+                            group.instrumentIds.forEach(id => processedIds.add(id))
+                            
+                            // Get all instruments in this group
+                            const groupInstruments = instruments.filter(i => 
+                              group.instrumentIds.includes(i.id)
+                            )
+                            
+                            // Calculate group height for brace
+                            const groupHeight = group.collapsed 
+                              ? 80 
+                              : groupInstruments.length * 80 + (groupInstruments.length - 1) * 12
+                            
                             return (
-                              <div 
-                                className={`bg-gray-900/40 rounded-lg p-4 hover:bg-gray-900/60 transition-colors border border-gray-800 ${
-                                  index < instruments.length - 1 ? 'mb-3' : ''
-                                } ${isDragging ? 'opacity-50' : ''}`}
-                              >
-                                <div className={`flex items-center gap-2 ${!isVisible ? 'opacity-50' : ''}`}>
-                                  {/* Toggle switch */}
-                                  <button
-                                    onClick={() => handleToggleInstrument(instrument.id)}
+                              <React.Fragment key={`group-${group.id}`}>
+                                {/* Group controls above instruments */}
+                                <div className="mb-2">
+                                  <div className="inline-flex items-center gap-1 bg-gray-800/95 backdrop-blur-sm rounded-md px-2 py-1 border border-cyan-400/30 shadow-lg">
+                                    {/* Group name */}
+                                    <EditableText
+                                      value={group.name}
+                                      onSave={(newName) => handleUpdateGroupName(group.id, newName)}
+                                      className="text-xs font-medium text-cyan-400 leading-none min-w-0"
+                                      inputClassName="text-xs font-medium w-20 bg-transparent border-none text-cyan-400"
+                                      maxLength={15}
+                                    />
+                                    
+                                    {/* Collapse/Expand button */}
+                                    <button
+                                      onClick={() => handleToggleGroupCollapse(group.id)}
+                                      className="text-gray-400 hover:text-cyan-400 transition-colors p-0.5 rounded hover:bg-gray-800/50"
+                                      title={group.collapsed ? "Expand group" : "Collapse group"}
+                                    >
+                                      <svg 
+                                        className={`w-3 h-3 transition-transform duration-200 ${group.collapsed ? 'rotate-0' : 'rotate-90'}`}
+                                        fill="currentColor" 
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
+                                    
+                                    {/* Ungroup button */}
+                                    <button
+                                      onClick={() => handleUngroup(group.id)}
+                                      className="text-gray-500 hover:text-red-400 transition-colors p-0.5 rounded hover:bg-red-900/20"
+                                      title="Ungroup instruments"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                                
+                                {/* Render entire group in one container */}
+                                <div className="relative flex items-stretch mb-3">
+                                  {/* Group brace on the left */}
+                                  <div className="mr-2" style={{ height: `${groupHeight}px` }}>
+                                    <GroupBrace
+                                      height={groupHeight}
+                                    />
+                                  </div>
+                                
+                                  
+                                  {/* Stack of grouped instruments */}
+                                  <div className="flex-1 space-y-3">
+                                    {(group.collapsed ? [groupInstruments[0]] : groupInstruments).map(groupInstrument => {
+                                      const isVisible = groupInstrument.visible !== false
+                                      
+                                      return (
+                                        <SortableInstrument key={groupInstrument.id} id={groupInstrument.id}>
+                                          {({ dragHandleProps, isDragging }) => (
+                                            <div 
+                                              className={`bg-gray-900/40 rounded-lg p-4 hover:bg-gray-900/60 transition-colors border
+                                                border-cyan-600/30 bg-cyan-900/5 shadow-lg shadow-cyan-900/10
+                                                ${isDragging ? 'opacity-50' : ''}
+                                              `}
+                                            >
+                                              <div className={`flex items-center gap-2 ${!isVisible ? 'opacity-50' : ''}`}>
+                                                {/* Toggle switch */}
+                                                <button
+                                                  onClick={() => handleToggleInstrument(groupInstrument.id)}
                                     className="w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
                                     style={{
                                       backgroundColor: isVisible ? '#06b6d4' : '#374151'
@@ -572,12 +695,12 @@ export default function Grid({ interaction }) {
                                     />
                                   </button>
                                   
-                                  {/* Settings/drag handle */}
-                                  <button
-                                    {...dragHandleProps}
-                                    onClick={(e) => {
-                                      if (!e.defaultPrevented) {
-                                        setShowInstrumentSettings(instrument)
+                                                {/* Settings/drag handle */}
+                                                <button
+                                                  {...dragHandleProps}
+                                                  onClick={(e) => {
+                                                    if (!e.defaultPrevented) {
+                                                      setShowInstrumentSettings(groupInstrument)
                                       }
                                     }}
                                     className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
@@ -593,51 +716,175 @@ export default function Grid({ interaction }) {
                                     </svg>
                                   </button>
                                   
-                                  {/* Instrument label */}
-                                  <div className="w-24 flex-shrink-0">
-                                    <EditableText
-                                      value={instrument.name}
-                                      onSave={(newName) => handleInstrumentNameChange(instrument.id, newName)}
+                                                {/* Instrument label */}
+                                                <div className="w-24 flex-shrink-0">
+                                                  <EditableText
+                                                    value={groupInstrument.name}
+                                                    onSave={(newName) => handleInstrumentNameChange(groupInstrument.id, newName)}
                                       className="text-sm font-semibold text-cyan-300"
                                       inputClassName="text-sm font-semibold"
                                       maxLength={20}
                                     />
                                   </div>
                                   
-                                  {/* Bars for this range */}
-                                  <div className="flex-1">
-                                    <div className="inline-flex items-center gap-0">
-                                      {Array.from({ length: range.end - range.start + 1 }, (_, i) => {
-                                        const barIndex = range.start + i
-                                        return (
-                                          <div 
-                                            key={barIndex} 
-                                            className="inline-flex items-center gap-0 border-r-2 pr-2 last:border-r-0 border-gray-700/50"
-                                          >
-                                            {Array.from({ length: grid.beats }, (_, beatInBar) => 
-                                              renderBeatUnit(instrument, barIndex, beatInBar)
-                                            )}
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
+                                                {/* Bars for this range */}
+                                                <div className="flex-1">
+                                                  <div className="inline-flex items-center gap-0">
+                                                    {Array.from({ length: range.end - range.start + 1 }, (_, i) => {
+                                                      const barIndex = range.start + i
+                                                      return (
+                                                        <div 
+                                                          key={barIndex} 
+                                                          className="inline-flex items-center gap-0 border-r-2 pr-2 last:border-r-0 border-gray-700/50"
+                                                        >
+                                                          {Array.from({ length: grid.beats }, (_, beatInBar) => 
+                                                            renderBeatUnit(groupInstrument, barIndex, beatInBar)
+                                                          )}
+                                                        </div>
+                                                      )
+                                                    })}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </SortableInstrument>
+                                      )
+                                    })}
                                   </div>
                                 </div>
-                              </div>
+                              </React.Fragment>
                             )
-                          }}
-                        </SortableInstrument>
-                      ))}
+                          }
+                          
+                          // Non-grouped instrument - render normally
+                          processedIds.add(instrument.id)
+                          
+                          return (
+                            <React.Fragment key={instrument.id}>
+                              <SortableInstrument id={instrument.id}>
+                                {({ dragHandleProps, isDragging }) => {
+                                  const isVisible = instrument.visible !== false
+                                  
+                                  return (
+                                    <div className="mb-3">
+                                      <div 
+                                        className={`bg-gray-900/40 rounded-lg p-4 hover:bg-gray-900/60 transition-colors border
+                                          border-gray-800
+                                          ${isDragging ? 'opacity-50' : ''}
+                                        `}
+                                      >
+                                        <div className={`flex items-center gap-2 ${!isVisible ? 'opacity-50' : ''}`}>
+                                          {/* Toggle switch */}
+                                          <button
+                                            onClick={() => handleToggleInstrument(instrument.id)}
+                                            className="w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
+                                            style={{
+                                              backgroundColor: isVisible ? '#06b6d4' : '#374151'
+                                            }}
+                                          >
+                                            <div 
+                                              className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200"
+                                              style={{
+                                                transform: isVisible ? 'translateX(26px)' : 'translateX(2px)'
+                                              }}
+                                            />
+                                          </button>
+                                          
+                                          {/* Settings/drag handle */}
+                                          <button
+                                            {...dragHandleProps}
+                                            onClick={(e) => {
+                                              if (!e.defaultPrevented) {
+                                                setShowInstrumentSettings(instrument)
+                                              }
+                                            }}
+                                            className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
+                                            title="Drag to reorder / Click for settings"
+                                          >
+                                            <svg className="w-5 h-5 text-gray-400 hover:text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
+                                              <circle cx="6" cy="6" r="1.5" />
+                                              <circle cx="10" cy="6" r="1.5" />
+                                              <circle cx="14" cy="6" r="1.5" />
+                                              <circle cx="6" cy="14" r="1.5" />
+                                              <circle cx="10" cy="14" r="1.5" />
+                                              <circle cx="14" cy="14" r="1.5" />
+                                            </svg>
+                                          </button>
+                                          
+                                          {/* Instrument label */}
+                                          <div className="w-24 flex-shrink-0">
+                                            <EditableText
+                                              value={instrument.name}
+                                              onSave={(newName) => handleInstrumentNameChange(instrument.id, newName)}
+                                              className="text-sm font-semibold text-cyan-300"
+                                              inputClassName="text-sm font-semibold"
+                                              maxLength={20}
+                                            />
+                                          </div>
+                                          
+                                          {/* Bars for this range */}
+                                          <div className="flex-1">
+                                            <div className="inline-flex items-center gap-0">
+                                              {Array.from({ length: range.end - range.start + 1 }, (_, i) => {
+                                                const barIndex = range.start + i
+                                                return (
+                                                  <div 
+                                                    key={barIndex} 
+                                                    className="inline-flex items-center gap-0 border-r-2 pr-2 last:border-r-0 border-gray-700/50"
+                                                  >
+                                                    {Array.from({ length: grid.beats }, (_, beatInBar) => 
+                                                      renderBeatUnit(instrument, barIndex, beatInBar)
+                                                    )}
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                }}
+                              </SortableInstrument>
+                              
+                              {/* Group creation button between instruments */}
+                              {canCreateGroupWithNext && (
+                                <div className="flex items-center gap-2 pl-4 py-1">
+                                  {/* Spacer to align with toggle + settings buttons */}
+                                  <div className="w-12" />
+                                  <div className="w-5" />
+                                  {/* Group button positioned where instrument name would be */}
+                                  <div className="w-24 flex-shrink-0 flex justify-center">
+                                    <GroupControls
+                                      onCreateGroup={handleCreateGroup}
+                                      instrumentAboveId={instrument.id}
+                                      instrumentBelowId={nextInstrument.id}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </React.Fragment>
+                          )
+                        })
+                      })()}
                     </SortableContext>
                   </DndContext>
                 ) : (
                   /* Continuation ranges without controls */
                   instruments.map((instrument, index) => {
                     const isVisible = instrument.visible !== false
+                    const shouldShowInstrument = isInstrumentVisibleInGroup(instrument)
+                    const group = getInstrumentGroup(instrument.id)
+                    
+                    if (!shouldShowInstrument) return null
+                    
                     return (
                       <div 
                         key={`${instrument.id}-${rangeIndex}`}
-                        className={`bg-gray-900/40 rounded-lg p-4 hover:bg-gray-900/60 transition-colors border border-gray-800`}
+                        className={`bg-gray-900/40 rounded-lg p-4 hover:bg-gray-900/60 transition-colors border ${
+                          group ? 'border-cyan-600/30 ml-12 bg-cyan-900/5' : 'border-gray-800'
+                        }`}
                       >
                         <div className={`flex items-center gap-2 ${!isVisible ? 'opacity-50' : ''}`}>
                           {/* Spacer to align with first range */}
@@ -723,7 +970,7 @@ export default function Grid({ interaction }) {
   
   return (
     <>
-      <div className="space-y-4">
+      <div id="drum-grid" className="space-y-4">
         {renderBarGroup()}
       </div>
       
@@ -734,7 +981,7 @@ export default function Grid({ interaction }) {
       {/* Instrument Settings Modal */}
       {showInstrumentSettings && (
         <InstrumentSettings
-          instrument={showInstrumentSettings}
+          instrument={instruments.find(i => i.id === showInstrumentSettings.id) || showInstrumentSettings}
           onClose={() => setShowInstrumentSettings(null)}
           onUpdate={handleUpdateInstrumentSettings}
           currentSubdivision={showInstrumentSettings.subdivision || 4}

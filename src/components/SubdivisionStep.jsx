@@ -7,7 +7,6 @@ export default function SubdivisionStep({
   subdivisionIndex,
   note, 
   isSelected,
-  stepIndex,
   onMouseDown,
   onMouseEnter,
   onDoubleClick
@@ -19,7 +18,7 @@ export default function SubdivisionStep({
     
     // Use interaction handler if provided
     if (onMouseDown) {
-      onMouseDown(instrumentId, stepIndex, e)
+      onMouseDown(instrumentId, beatIndex, subdivisionIndex, e)
     } else {
       // Fallback for basic functionality
       if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
@@ -33,7 +32,8 @@ export default function SubdivisionStep({
               subdivision: subdivisionIndex,
               symbol: note.symbol,
               modifier: note.modifier,
-              position: stepIndex
+              technique: note.technique || '',
+              effect: note.effect || ''
             }
           })
         } else {
@@ -45,7 +45,9 @@ export default function SubdivisionStep({
               beatIndex,
               subdivision: subdivisionIndex,
               symbol: state.ui.activeSymbol,
-              modifier: state.ui.activeModifier
+              modifier: state.ui.activeModifier,
+              technique: state.ui.activeTechnique,
+              effect: state.ui.activeEffect
             }
           })
         }
@@ -55,21 +57,21 @@ export default function SubdivisionStep({
   
   const handleMouseEnter = (e) => {
     if (onMouseEnter) {
-      onMouseEnter(instrumentId, stepIndex, e)
+      onMouseEnter(instrumentId, beatIndex, subdivisionIndex, e)
     }
   }
   
   const handleDoubleClick = (e) => {
     e.stopPropagation()
     if (onDoubleClick) {
-      onDoubleClick(instrumentId, stepIndex)
+      onDoubleClick(instrumentId, beatIndex, subdivisionIndex)
     }
   }
   
   return (
     <div
       className={`
-        drum-step w-full h-7 border rounded flex items-center justify-center relative
+        drum-step w-full h-12 border rounded flex flex-col items-center justify-center relative
         cursor-pointer transition-all duration-150 shadow-sm text-xs
         ${note 
           ? 'bg-cyan-700 border-cyan-500 text-white shadow-cyan-900/30' 
@@ -82,22 +84,58 @@ export default function SubdivisionStep({
       onDoubleClick={handleDoubleClick}
       data-grid-cell
       data-instrument-id={instrumentId}
-      data-step-index={stepIndex}
       data-beat-index={beatIndex}
       data-subdivision={subdivisionIndex}
       data-has-note={!!note}
       title={`Step ${subdivisionIndex + 1}`}
     >
-      {/* Note symbol */}
-      <span className="font-semibold truncate px-0.5">
-        {note ? note.symbol : ''}
-      </span>
-      
-      {/* Modifier indicator */}
-      {note?.modifier && (
-        <span className="absolute -top-1 -right-1 text-[8px] text-yellow-400">
-          {note.modifier}
-        </span>
+      {note ? (
+        <div className="flex flex-col items-center justify-center w-full h-full py-0.5">
+          {/* Effect (top) */}
+          <div className="h-3 flex items-center justify-center">
+            {note.effect && (
+              <span className="text-[10px] text-green-400 font-bold">
+                {note.effect}
+              </span>
+            )}
+          </div>
+          
+          {/* Main symbol + modifier (middle) */}
+          <div className="flex items-start justify-center">
+            {note.modifier === '(...)' ? (
+              /* Roll notation - wrap symbol in parentheses */
+              <span className="font-semibold text-base">
+                ({note.symbol})
+              </span>
+            ) : (
+              <>
+                {/* Note symbol */}
+                <span className="font-semibold text-base">
+                  {note.symbol}
+                </span>
+                
+                {/* Modifier as superscript */}
+                {note.modifier && (
+                  <span className="text-[10px] text-yellow-400 font-bold -mt-1">
+                    {note.modifier}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+          
+          {/* Technique (bottom) */}
+          <div className="h-3 flex items-center justify-center">
+            {note.technique && (
+              <span className="text-[10px] text-blue-400 font-bold">
+                {note.technique}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Empty step - maintain spacing */
+        <div className="h-full w-full"></div>
       )}
     </div>
   )

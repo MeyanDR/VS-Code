@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { saveAs } from 'file-saver'
 import { useAppState } from '../contexts/AppContext'
+import ExportView from './ExportView'
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,10 @@ const ExportModal = ({ isOpen, onClose }) => {
   const [quality, setQuality] = useState(2)
   const [isExporting, setIsExporting] = useState(false)
   const [previewCanvas, setPreviewCanvas] = useState(null)
+  const [activeTab, setActiveTab] = useState('settings')
+  const [exportMode, setExportMode] = useState('clean') // 'clean' or 'current'
   const previewRef = useRef(null)
+  const cleanExportRef = useRef(null)
 
   const pageSizes = {
     A4: { width: 210, height: 297 },
@@ -41,16 +45,44 @@ const ExportModal = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
+      // Add a small delay to ensure DOM is ready
+      setTimeout(() => {
+        console.log(`Generating preview in ${exportMode} mode`)
+        generatePreview()
+      }, 100)
+    }
+  }, [isOpen, format, pageSize, orientation, quality, exportMode])
+
+  // Generate preview when switching to preview tab
+  useEffect(() => {
+    if (isOpen && activeTab === 'preview') {
+      console.log('Preview tab activated, generating preview')
       generatePreview()
     }
-  }, [isOpen, format, pageSize, orientation, quality])
+  }, [activeTab, isOpen])
 
   const generatePreview = async () => {
-    const gridElement = document.querySelector('#drum-grid')
-    if (!gridElement) return
+    let elementToExport
+    
+    if (exportMode === 'clean') {
+      // Generate clean export preview
+      elementToExport = cleanExportRef.current
+      if (!elementToExport) {
+        console.error('Clean export container not found')
+        return
+      }
+    } else {
+      // Current view mode - capture the drum grid
+      elementToExport = document.querySelector('#drum-grid')
+      console.log('Grid element found:', elementToExport)
+      if (!elementToExport) {
+        console.error('Could not find #drum-grid element')
+        return
+      }
+    }
 
     try {
-      const canvas = await html2canvas(gridElement, {
+      const canvas = await html2canvas(elementToExport, {
         scale: 1,
         backgroundColor: '#ffffff',
         logging: false
@@ -74,13 +106,24 @@ const ExportModal = ({ isOpen, onClose }) => {
   }
 
   const handleExport = async () => {
-    const gridElement = document.querySelector('#drum-grid')
-    if (!gridElement || isExporting) return
+    if (isExporting) return
+    
+    let elementToExport
+    if (exportMode === 'clean') {
+      elementToExport = cleanExportRef.current
+    } else {
+      elementToExport = document.querySelector('#drum-grid')
+    }
+    
+    if (!elementToExport) {
+      console.error('Export element not found')
+      return
+    }
     
     setIsExporting(true)
 
     try {
-      const canvas = await html2canvas(gridElement, {
+      const canvas = await html2canvas(elementToExport, {
         scale: quality,
         backgroundColor: '#ffffff',
         logging: false,
@@ -150,10 +193,16 @@ const ExportModal = ({ isOpen, onClose }) => {
   }
 
   const exportAsSVG = (filename) => {
-    const gridElement = document.querySelector('#drum-grid')
-    if (!gridElement) return
+    let elementToExport
+    if (exportMode === 'clean') {
+      elementToExport = cleanExportRef.current
+    } else {
+      elementToExport = document.querySelector('#drum-grid')
+    }
+    
+    if (!elementToExport) return
 
-    const svgContent = generateSVGFromDOM(gridElement)
+    const svgContent = generateSVGFromDOM(elementToExport)
     const blob = new Blob([svgContent], { type: 'image/svg+xml' })
     saveAs(blob, `${filename}.svg`)
   }
@@ -207,21 +256,36 @@ const ExportModal = ({ isOpen, onClose }) => {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="settings" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="settings" className="space-y-4">
+          <TabsContent value="settings" className="space-y-4 min-h-[300px]">
             <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="exportMode" className="text-right text-daw-text-primary">
+                  Export Mode
+                </Label>
+                <Select value={exportMode} onValueChange={setExportMode}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select export mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="clean">Clean Export (Professional)</SelectItem>
+                    <SelectItem value="current">Current View</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="format" className="text-right">
                   Format
                 </Label>
                 <Select value={format} onValueChange={setFormat}>
                   <SelectTrigger className="col-span-3">
-                    <SelectValue />
+                    <SelectValue placeholder="Select format" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pdf">PDF</SelectItem>
@@ -239,7 +303,7 @@ const ExportModal = ({ isOpen, onClose }) => {
                     </Label>
                     <Select value={pageSize} onValueChange={setPageSize}>
                       <SelectTrigger className="col-span-3">
-                        <SelectValue />
+                        <SelectValue placeholder="Select page size" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="A4">A4</SelectItem>
@@ -255,7 +319,7 @@ const ExportModal = ({ isOpen, onClose }) => {
                     </Label>
                     <Select value={orientation} onValueChange={setOrientation}>
                       <SelectTrigger className="col-span-3">
-                        <SelectValue />
+                        <SelectValue placeholder="Select orientation" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="portrait">Portrait</SelectItem>
@@ -288,8 +352,8 @@ const ExportModal = ({ isOpen, onClose }) => {
             </div>
           </TabsContent>
           
-          <TabsContent value="preview" className="mt-4">
-            <div className="border border-daw-border rounded-lg p-4">
+          <TabsContent value="preview" className="mt-4 min-h-[300px]">
+            <div className="border border-daw-border rounded-lg p-4 min-h-[250px]">
               <canvas 
                 ref={previewRef} 
                 className="w-full h-auto max-h-[400px] object-contain"
@@ -310,6 +374,13 @@ const ExportModal = ({ isOpen, onClose }) => {
             {isExporting ? 'Exporting...' : `Export as ${format.toUpperCase()}`}
           </Button>
         </DialogFooter>
+        
+        {/* Hidden clean export view for generating exports */}
+        <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '1200px' }}>
+          <div ref={cleanExportRef}>
+            {exportMode === 'clean' && <ExportView />}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

@@ -23,6 +23,7 @@ const initialState = {
             pattern: []
           }
         ],
+        groups: [], // Array of instrument groups
         grid: {
           bars: 4,
           beats: 4,
@@ -35,12 +36,30 @@ const initialState = {
   },
   ui: {
     selectedSteps: new Set(),
+    selectOnlyMode: false,
     activeSymbol: 'o',
     activeModifier: '',
+    activeTechnique: '',
+    activeEffect: '',
+    patternType: 'loop',
     editingStep: null,
+    editFieldSymbol: null,
+    editFieldArticulation: null,
+    editFieldTechnique: null,
+    editFieldEffect: null,
     dragMode: null,
     isDragging: false,
-    clipboard: null
+    clipboard: null,
+    availableSymbols: [
+      { value: 'o', label: 'Open Note', description: 'Basic open note / Normal hit', shortcut: '' },
+      { value: 'x', label: 'Cross Note', description: 'Muted or closed note / Stick shot', shortcut: '' },
+      { value: '/', label: 'Rest/Tie', description: 'Rest or tie', shortcut: '' }
+    ],
+    availableArticulationModifiers: [
+      { value: '', label: 'None', description: 'No modifier', shortcut: '' }
+    ],
+    availableTechniqueModifiers: [],
+    availableEffectModifiers: []
   },
   layout: {
     pageSize: 'A4',
@@ -115,50 +134,30 @@ function projectReducer(state = initialState.project, action) {
       const instrument = section.instruments.find(i => i.id === action.payload.instrumentId)
       if (!instrument) return state
       
-      const newPattern = [...instrument.pattern]
-      const beatSubdivisions = section.grid.beatSubdivisions || Array(section.grid.bars * section.grid.beats).fill(section.grid.subdivisions)
-      
-      // Calculate position and beat/subdivision
-      let position = action.payload.position
-      let beatIndex = action.payload.beatIndex
-      let subdivision = action.payload.subdivision
-      
-      if (beatIndex !== undefined && subdivision !== undefined) {
-        // Calculate position from beat and subdivision
-        position = 0
-        for (let i = 0; i < beatIndex; i++) {
-          position += beatSubdivisions[i] || 4
-        }
-        position += subdivision
-      } else if (position !== undefined) {
-        // Calculate beat and subdivision from position
-        let remainingPosition = position
-        beatIndex = 0
-        
-        while (beatIndex < beatSubdivisions.length && remainingPosition >= beatSubdivisions[beatIndex]) {
-          remainingPosition -= beatSubdivisions[beatIndex]
-          beatIndex++
-        }
-        
-        subdivision = remainingPosition
+      // Now we ONLY use beatIndex and subdivision
+      const { beatIndex, subdivision, symbol, modifier, technique, effect } = action.payload
+      console.log('[ADD_NOTE] Received:', action.payload)
+      if (beatIndex === undefined || subdivision === undefined) {
+        console.error('[ADD_NOTE] Missing beatIndex or subdivision:', action.payload)
+        return state
       }
       
-      // Find existing note at this position - use CALCULATED values, not payload values
-      const existingIndex = newPattern.findIndex(n => {
-        // Always use the calculated beatIndex and subdivision for comparison
-        if (beatIndex !== undefined && subdivision !== undefined) {
-          return n.beatIndex === beatIndex && n.subdivision === subdivision
-        }
-        return n.position === position
-      })
+      const newPattern = [...instrument.pattern]
+      
+      // Find existing note at this musical position
+      const existingIndex = newPattern.findIndex(n => 
+        n.beatIndex === beatIndex && n.subdivision === subdivision
+      )
       
       const newNote = {
-        position: position,
-        beatIndex: beatIndex,
-        subdivision: subdivision,
-        symbol: action.payload.symbol,
-        modifier: action.payload.modifier
+        beatIndex,
+        subdivision,
+        symbol: symbol || 'o',
+        modifier: modifier || '',
+        technique: technique || '',
+        effect: effect || ''
       }
+      console.log('[ADD_NOTE] Storing note:', newNote, 'at index:', existingIndex >= 0 ? existingIndex : 'new')
       
       if (existingIndex >= 0) {
         newPattern[existingIndex] = newNote
@@ -187,12 +186,15 @@ function projectReducer(state = initialState.project, action) {
       const instrument = section.instruments.find(i => i.id === action.payload.instrumentId)
       if (!instrument) return state
       
-      const newPattern = instrument.pattern.filter(n => {
-        if (action.payload.beatIndex !== undefined && action.payload.subdivision !== undefined) {
-          return !(n.beatIndex === action.payload.beatIndex && n.subdivision === action.payload.subdivision)
-        }
-        return n.position !== action.payload.position
-      })
+      const { beatIndex, subdivision } = action.payload
+      if (beatIndex === undefined || subdivision === undefined) {
+        console.error('[REMOVE_NOTE] Missing beatIndex or subdivision:', action.payload)
+        return state
+      }
+      
+      const newPattern = instrument.pattern.filter(n => 
+        !(n.beatIndex === beatIndex && n.subdivision === subdivision)
+      )
       
       return {
         ...state,
@@ -215,16 +217,20 @@ function projectReducer(state = initialState.project, action) {
       const instrument = section.instruments.find(i => i.id === action.payload.instrumentId)
       if (!instrument) return state
       
+      const { beatIndex, subdivision, symbol, modifier, technique, effect } = action.payload
+      if (beatIndex === undefined || subdivision === undefined) {
+        console.error('[UPDATE_NOTE] Missing beatIndex or subdivision:', action.payload)
+        return state
+      }
+      
       const newPattern = instrument.pattern.map(n => {
-        const isTarget = action.payload.beatIndex !== undefined && action.payload.subdivision !== undefined
-          ? (n.beatIndex === action.payload.beatIndex && n.subdivision === action.payload.subdivision)
-          : n.position === action.payload.position
-        
-        if (isTarget) {
+        if (n.beatIndex === beatIndex && n.subdivision === subdivision) {
           return {
             ...n,
-            symbol: action.payload.symbol,
-            modifier: action.payload.modifier
+            symbol,
+            modifier,
+            technique: technique || '',
+            effect: effect || ''
           }
         }
         return n
@@ -297,22 +303,36 @@ function projectReducer(state = initialState.project, action) {
     
     case 'UPDATE_INSTRUMENT_SETTINGS': {
       const section = state.sections[state.currentSection]
+      const updatedInstruments = section.instruments.map(i => 
+        i.id === action.payload.instrumentId 
+          ? { 
+              ...i, 
+              subdivision: action.payload.settings.subdivision || i.subdivision,
+              beats: action.payload.settings.beats || i.beats,
+              measures: action.payload.settings.measures || i.measures
+            }
+          : i
+      )
+      
+      // DEBUG: Log the settings update
+      const updatedInstrument = updatedInstruments.find(i => i.id === action.payload.instrumentId)
+      console.log('💾 [DEBUG] Saved instrument settings to state:', {
+        instrumentId: action.payload.instrumentId,
+        inputSettings: action.payload.settings,
+        finalInstrument: {
+          subdivision: updatedInstrument.subdivision,
+          beats: updatedInstrument.beats,
+          measures: updatedInstrument.measures
+        }
+      })
+      
       return {
         ...state,
         sections: {
           ...state.sections,
           [state.currentSection]: {
             ...section,
-            instruments: section.instruments.map(i => 
-              i.id === action.payload.instrumentId 
-                ? { 
-                    ...i, 
-                    subdivision: action.payload.settings.subdivision || i.subdivision,
-                    beats: action.payload.settings.beats || i.beats,
-                    measures: action.payload.settings.measures || i.measures
-                  }
-                : i
-            )
+            instruments: updatedInstruments
           }
         }
       }
@@ -441,14 +461,18 @@ function projectReducer(state = initialState.project, action) {
         }
       }
     
+    case 'NEW_PROJECT':
+      // Return the initial project state
+      return initialState.project
+    
     case 'CUT_SELECTION': {
       const selectedSteps = action.payload.selectedSteps
       console.log('[projectReducer CUT] selectedSteps to remove:', selectedSteps)
       const section = state.sections[state.currentSection]
       const updatedInstruments = section.instruments.map(instrument => {
         const newPattern = instrument.pattern.filter(note => {
-          // Match the format used in selectedSteps: {instrumentId}-{position}
-          const stepKey = `${instrument.id}-${note.position}`
+          // Match the new format used in selectedSteps: {instrumentId}-{beatIndex}-{subdivision}
+          const stepKey = `${instrument.id}-${note.beatIndex}-${note.subdivision}`
           const shouldKeep = !selectedSteps.includes(stepKey)
           if (!shouldKeep) {
             console.log(`[projectReducer CUT] Removing note at ${stepKey}`)
@@ -478,64 +502,85 @@ function projectReducer(state = initialState.project, action) {
       console.log('[projectReducer PASTE] clipboard:', clipboard)
       console.log('[projectReducer PASTE] targetBeat:', targetBeat, 'targetSubdivision:', targetSubdivision)
       
-      // Check if we have the new notes format
-      if (!clipboard || (!clipboard.notes || clipboard.notes.length === 0)) {
-        console.log('[projectReducer PASTE] No note data in clipboard, aborting')
+      // Check if we have the new pattern format
+      if (!clipboard || !clipboard.pattern) {
+        console.log('[projectReducer PASTE] No pattern data in clipboard, aborting')
         return state
       }
       
       const section = state.sections[state.currentSection]
       const beatSubdivisions = section.grid.beatSubdivisions || Array(section.grid.bars * section.grid.beats).fill(section.grid.subdivisions)
+      const patternData = clipboard.pattern
       
-      // Find minimum position from the notes to calculate offset
-      let minBeat = Infinity
-      let minSubdiv = Infinity
+      console.log('[PASTE] Pattern to paste:', patternData)
+      console.log('[PASTE] Pattern cells detail:', patternData.pattern.map(p => 
+        `${p.instrumentId} @ beat:${p.beatOffset} subdiv:${p.subdivOffset} hasNote:${p.hasNote}`
+      ))
       
-      clipboard.notes.forEach(note => {
-        // Skip notes without valid beatIndex/subdivision
-        if (note.beatIndex === undefined || note.subdivision === undefined) {
-          console.log('[PASTE] Warning: Note missing beatIndex/subdivision:', note)
-          return
+      // Group pattern cells by instrument
+      const cellsByInstrument = {}
+      patternData.pattern.forEach(cell => {
+        if (!cellsByInstrument[cell.instrumentId]) {
+          cellsByInstrument[cell.instrumentId] = []
         }
-        
-        if (note.beatIndex < minBeat || (note.beatIndex === minBeat && note.subdivision < minSubdiv)) {
-          minBeat = note.beatIndex
-          minSubdiv = note.subdivision
-        }
+        cellsByInstrument[cell.instrumentId].push(cell)
       })
       
-      // If no valid notes found, abort paste
-      if (minBeat === Infinity || minSubdiv === Infinity) {
-        console.log('[PASTE] No valid notes to paste (all missing beatIndex/subdivision)')
-        return state
-      }
-      
-      const beatOffset = targetBeat - minBeat
-      const subdivOffset = targetSubdivision - minSubdiv
-      
-      console.log('[PASTE] Found min position - beat:', minBeat, 'subdiv:', minSubdiv)
-      console.log('[PASTE] Offsets - beat:', beatOffset, 'subdiv:', subdivOffset)
-      console.log('[PASTE] Notes to paste:', clipboard.notes)
-      
       const updatedInstruments = section.instruments.map(instrument => {
-        // Filter notes for this instrument
-        const notesToPaste = clipboard.notes.filter(n => n.instrumentId === instrument.id)
-        
-        if (notesToPaste.length === 0) {
+        const cellsToPaste = cellsByInstrument[instrument.id]
+        if (!cellsToPaste || cellsToPaste.length === 0) {
           return instrument
         }
         
-        console.log(`[PASTE] Pasting ${notesToPaste.length} notes to instrument ${instrument.id}`)
+        console.log(`[PASTE] Processing ${cellsToPaste.length} cells for instrument ${instrument.id}`)
         
-        const existingNotes = [...instrument.pattern]
+        // Start with existing notes
+        let updatedPattern = [...instrument.pattern]
         
-        notesToPaste.forEach(note => {
-          const newBeat = note.beatIndex + beatOffset
-          const newSubdiv = note.subdivision + subdivOffset
+        // First pass: Remove all notes in the target area
+        cellsToPaste.forEach(cell => {
+          const targetBeatPos = targetBeat + cell.beatOffset
+          const targetSubdivPos = targetSubdivision + cell.subdivOffset
           
-          // Adjust subdivision overflow
-          let finalBeat = newBeat
-          let finalSubdiv = newSubdiv
+          // Adjust for subdivision overflow
+          let finalBeat = targetBeatPos
+          let finalSubdiv = targetSubdivPos
+          
+          while (finalSubdiv >= (beatSubdivisions[finalBeat] || section.grid.subdivisions)) {
+            finalSubdiv -= (beatSubdivisions[finalBeat] || section.grid.subdivisions)
+            finalBeat++
+          }
+          
+          while (finalSubdiv < 0) {
+            finalBeat--
+            finalSubdiv += (beatSubdivisions[finalBeat] || section.grid.subdivisions)
+          }
+          
+          // Check bounds
+          const maxBeats = section.grid.bars * section.grid.beats
+          if (finalBeat < 0 || finalBeat >= maxBeats) {
+            return
+          }
+          
+          // Remove any existing note at this position
+          updatedPattern = updatedPattern.filter(n => 
+            !(n.beatIndex === finalBeat && n.subdivision === finalSubdiv)
+          )
+        })
+        
+        // Second pass: Add notes where the pattern has notes
+        cellsToPaste.forEach(cell => {
+          if (!cell.hasNote) {
+            // This cell should be empty, we already cleared it
+            return
+          }
+          
+          const targetBeatPos = targetBeat + cell.beatOffset
+          const targetSubdivPos = targetSubdivision + cell.subdivOffset
+          
+          // Adjust for subdivision overflow
+          let finalBeat = targetBeatPos
+          let finalSubdiv = targetSubdivPos
           
           while (finalSubdiv >= (beatSubdivisions[finalBeat] || section.grid.subdivisions)) {
             finalSubdiv -= (beatSubdivisions[finalBeat] || section.grid.subdivisions)
@@ -554,34 +599,19 @@ function projectReducer(state = initialState.project, action) {
             return
           }
           
-          // Calculate new position
-          const newPosition = calculatePosition(finalBeat, finalSubdiv, section.grid)
-          
-          // Check if note already exists at this position
-          const existingIndex = existingNotes.findIndex(n => n.position === newPosition)
-          
+          // Add the note
           const newNote = {
-            ...note,
             beatIndex: finalBeat,
             subdivision: finalSubdiv,
-            position: newPosition,
-            // Remove instrumentId as it's not part of the note structure
-            instrumentId: undefined
+            symbol: cell.note.symbol,
+            modifier: cell.note.modifier
           }
-          delete newNote.instrumentId
           
-          if (existingIndex >= 0) {
-            // Replace existing note
-            console.log('[PASTE] Replacing existing note at position:', newPosition)
-            existingNotes[existingIndex] = newNote
-          } else {
-            // Add new note
-            console.log('[PASTE] Adding new note at position:', newPosition, 'note:', newNote)
-            existingNotes.push(newNote)
-          }
+          console.log('[PASTE] Adding note at beat:', finalBeat, 'subdiv:', finalSubdiv)
+          updatedPattern.push(newNote)
         })
         
-        return { ...instrument, pattern: existingNotes }
+        return { ...instrument, pattern: updatedPattern }
       })
       
       return {
@@ -650,6 +680,7 @@ function projectReducer(state = initialState.project, action) {
             pattern: []
           }
         ],
+        groups: [], // Initialize groups array
         grid: {
           ...currentSection.grid,
           beatSubdivisions: [...currentSection.grid.beatSubdivisions]
@@ -698,6 +729,7 @@ function projectReducer(state = initialState.project, action) {
           id: `${instrument.id}_${duplicateId}`,
           pattern: [...instrument.pattern]
         })),
+        groups: sectionToDuplicate.groups ? [...sectionToDuplicate.groups] : [], // Copy groups
         grid: {
           ...sectionToDuplicate.grid,
           beatSubdivisions: [...sectionToDuplicate.grid.beatSubdivisions]
@@ -775,6 +807,114 @@ function projectReducer(state = initialState.project, action) {
       }
     }
     
+    case 'CREATE_GROUP': {
+      const section = state.sections[state.currentSection]
+      const { instrumentIds, name } = action.payload
+      
+      // Create new group
+      const newGroup = {
+        id: `group_${Date.now()}`,
+        name: name || 'Group',
+        instrumentIds: instrumentIds,
+        collapsed: false,
+        color: '#06b6d4' // cyan-600
+      }
+      
+      // Update instruments to have groupId
+      const updatedInstruments = section.instruments.map(instrument => {
+        if (instrumentIds.includes(instrument.id)) {
+          return { ...instrument, groupId: newGroup.id }
+        }
+        return instrument
+      })
+      
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            groups: [...(section.groups || []), newGroup],
+            instruments: updatedInstruments
+          }
+        }
+      }
+    }
+    
+    case 'UNGROUP': {
+      const section = state.sections[state.currentSection]
+      const { groupId } = action.payload
+      
+      // Remove group
+      const updatedGroups = (section.groups || []).filter(g => g.id !== groupId)
+      
+      // Update instruments to remove groupId
+      const updatedInstruments = section.instruments.map(instrument => {
+        if (instrument.groupId === groupId) {
+          return { ...instrument, groupId: null }
+        }
+        return instrument
+      })
+      
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            groups: updatedGroups,
+            instruments: updatedInstruments
+          }
+        }
+      }
+    }
+    
+    case 'TOGGLE_GROUP_COLLAPSE': {
+      const section = state.sections[state.currentSection]
+      const { groupId } = action.payload
+      
+      const updatedGroups = (section.groups || []).map(group => {
+        if (group.id === groupId) {
+          return { ...group, collapsed: !group.collapsed }
+        }
+        return group
+      })
+      
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            groups: updatedGroups
+          }
+        }
+      }
+    }
+    
+    case 'UPDATE_GROUP_NAME': {
+      const section = state.sections[state.currentSection]
+      const { groupId, name } = action.payload
+      
+      const updatedGroups = (section.groups || []).map(group => {
+        if (group.id === groupId) {
+          return { ...group, name }
+        }
+        return group
+      })
+      
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            groups: updatedGroups
+          }
+        }
+      }
+    }
+    
     default:
       return state
   }
@@ -814,6 +954,162 @@ function uiReducer(state = initialState.ui, action) {
     case 'SET_ACTIVE_MODIFIER':
       return { ...state, activeModifier: action.payload }
     
+    case 'SET_ACTIVE_TECHNIQUE':
+      return { ...state, activeTechnique: action.payload }
+    
+    case 'SET_ACTIVE_EFFECT':
+      return { ...state, activeEffect: action.payload }
+    
+    case 'ADD_AVAILABLE_SYMBOL':
+      const existingSymbol = state.availableSymbols.find(s => s.value === action.payload.value)
+      if (existingSymbol) return state
+      return { ...state, availableSymbols: [...state.availableSymbols, action.payload] }
+    
+    case 'ADD_AVAILABLE_ARTICULATION':
+      const existingArticulation = state.availableArticulationModifiers.find(m => m.value === action.payload.value)
+      if (existingArticulation) return state
+      return { ...state, availableArticulationModifiers: [...state.availableArticulationModifiers, action.payload] }
+
+    case 'ADD_AVAILABLE_TECHNIQUE':
+      const existingTechnique = state.availableTechniqueModifiers.find(m => m.value === action.payload.value)
+      if (existingTechnique) return state
+      return { ...state, availableTechniqueModifiers: [...state.availableTechniqueModifiers, action.payload] }
+
+    case 'ADD_AVAILABLE_EFFECT':
+      const existingEffect = state.availableEffectModifiers.find(m => m.value === action.payload.value)
+      if (existingEffect) return state
+      return { ...state, availableEffectModifiers: [...state.availableEffectModifiers, action.payload] }
+    
+    case 'REMOVE_AVAILABLE_SYMBOL':
+      return { 
+        ...state, 
+        availableSymbols: state.availableSymbols.filter(s => s.value !== action.payload),
+        activeSymbol: state.activeSymbol === action.payload ? (state.availableSymbols[0]?.value || 'o') : state.activeSymbol
+      }
+    
+    case 'REMOVE_AVAILABLE_ARTICULATION':
+      return { 
+        ...state, 
+        availableArticulationModifiers: state.availableArticulationModifiers.filter(m => m.value !== action.payload),
+        activeModifier: state.activeModifier === action.payload ? (state.availableArticulationModifiers[0]?.value || '') : state.activeModifier
+      }
+
+    case 'REMOVE_AVAILABLE_TECHNIQUE':
+      return { 
+        ...state, 
+        availableTechniqueModifiers: state.availableTechniqueModifiers.filter(m => m.value !== action.payload)
+      }
+
+    case 'REMOVE_AVAILABLE_EFFECT':
+      return { 
+        ...state, 
+        availableEffectModifiers: state.availableEffectModifiers.filter(m => m.value !== action.payload)
+      }
+    
+    case 'UPDATE_SYMBOL_SHORTCUT': {
+      const newShortcut = action.payload.shortcut
+      // Check for duplicates across all categories if shortcut is not empty
+      if (newShortcut) {
+        const isDuplicate = 
+          state.availableSymbols.some(s => s.value !== action.payload.value && s.shortcut === newShortcut) ||
+          state.availableArticulationModifiers.some(m => m.shortcut === newShortcut) ||
+          state.availableTechniqueModifiers.some(m => m.shortcut === newShortcut) ||
+          state.availableEffectModifiers.some(m => m.shortcut === newShortcut)
+        
+        if (isDuplicate) {
+          console.warn(`Shortcut "${newShortcut}" is already in use`)
+          return state // Don't update if duplicate
+        }
+      }
+      
+      return {
+        ...state,
+        availableSymbols: state.availableSymbols.map(s =>
+          s.value === action.payload.value 
+            ? { ...s, shortcut: newShortcut }
+            : s
+        )
+      }
+    }
+    
+    case 'UPDATE_ARTICULATION_SHORTCUT': {
+      const newShortcut = action.payload.shortcut
+      // Check for duplicates across all categories if shortcut is not empty
+      if (newShortcut) {
+        const isDuplicate = 
+          state.availableSymbols.some(s => s.shortcut === newShortcut) ||
+          state.availableArticulationModifiers.some(m => m.value !== action.payload.value && m.shortcut === newShortcut) ||
+          state.availableTechniqueModifiers.some(m => m.shortcut === newShortcut) ||
+          state.availableEffectModifiers.some(m => m.shortcut === newShortcut)
+        
+        if (isDuplicate) {
+          console.warn(`Shortcut "${newShortcut}" is already in use`)
+          return state // Don't update if duplicate
+        }
+      }
+      
+      return {
+        ...state,
+        availableArticulationModifiers: state.availableArticulationModifiers.map(m =>
+          m.value === action.payload.value 
+            ? { ...m, shortcut: newShortcut }
+            : m
+        )
+      }
+    }
+    
+    case 'UPDATE_TECHNIQUE_SHORTCUT': {
+      const newShortcut = action.payload.shortcut
+      // Check for duplicates across all categories if shortcut is not empty
+      if (newShortcut) {
+        const isDuplicate = 
+          state.availableSymbols.some(s => s.shortcut === newShortcut) ||
+          state.availableArticulationModifiers.some(m => m.shortcut === newShortcut) ||
+          state.availableTechniqueModifiers.some(m => m.value !== action.payload.value && m.shortcut === newShortcut) ||
+          state.availableEffectModifiers.some(m => m.shortcut === newShortcut)
+        
+        if (isDuplicate) {
+          console.warn(`Shortcut "${newShortcut}" is already in use`)
+          return state // Don't update if duplicate
+        }
+      }
+      
+      return {
+        ...state,
+        availableTechniqueModifiers: state.availableTechniqueModifiers.map(m =>
+          m.value === action.payload.value 
+            ? { ...m, shortcut: newShortcut }
+            : m
+        )
+      }
+    }
+    
+    case 'UPDATE_EFFECT_SHORTCUT': {
+      const newShortcut = action.payload.shortcut
+      // Check for duplicates across all categories if shortcut is not empty
+      if (newShortcut) {
+        const isDuplicate = 
+          state.availableSymbols.some(s => s.shortcut === newShortcut) ||
+          state.availableArticulationModifiers.some(m => m.shortcut === newShortcut) ||
+          state.availableTechniqueModifiers.some(m => m.shortcut === newShortcut) ||
+          state.availableEffectModifiers.some(m => m.value !== action.payload.value && m.shortcut === newShortcut)
+        
+        if (isDuplicate) {
+          console.warn(`Shortcut "${newShortcut}" is already in use`)
+          return state // Don't update if duplicate
+        }
+      }
+      
+      return {
+        ...state,
+        availableEffectModifiers: state.availableEffectModifiers.map(m =>
+          m.value === action.payload.value 
+            ? { ...m, shortcut: newShortcut }
+            : m
+        )
+      }
+    }
+    
     case 'OPEN_EDIT_MODAL':
       return { ...state, editingStep: action.payload }
     
@@ -827,12 +1123,12 @@ function uiReducer(state = initialState.ui, action) {
       return { ...state, isDragging: action.payload }
     
     case 'COPY_SELECTION': {
-      // If payload contains notes, use them; otherwise fall back to old behavior
-      const noteData = action.payload?.notes || []
-      console.log('[uiReducer COPY] Note data:', noteData)
+      // Store the complete pattern with empty cells
+      const patternData = action.payload?.pattern
+      console.log('[uiReducer COPY] Pattern data:', patternData)
       const newClipboard = { 
         type: 'copy', 
-        notes: noteData,
+        pattern: patternData,
         // Keep old format for backward compatibility
         data: Array.from(state.selectedSteps) 
       }
@@ -841,12 +1137,12 @@ function uiReducer(state = initialState.ui, action) {
     }
     
     case 'CUT_SELECTION': {
-      // If payload contains notes, use them; otherwise fall back to old behavior
-      const noteData = action.payload?.notes || []
-      console.log('[uiReducer CUT] Note data:', noteData)
+      // Store the complete pattern with empty cells
+      const patternData = action.payload?.pattern
+      console.log('[uiReducer CUT] Pattern data:', patternData)
       const cutClipboard = { 
         type: 'cut', 
-        notes: noteData,
+        pattern: patternData,
         // Keep old format for backward compatibility
         data: Array.from(state.selectedSteps) 
       }
@@ -859,6 +1155,34 @@ function uiReducer(state = initialState.ui, action) {
     
     case 'SET_PATTERN_TYPE':
       return { ...state, patternType: action.payload }
+    
+    case 'SET_EDIT_FIELD_SYMBOL':
+      return { ...state, editFieldSymbol: action.payload }
+    
+    case 'SET_EDIT_FIELD_ARTICULATION':
+      return { ...state, editFieldArticulation: action.payload }
+    
+    case 'SET_EDIT_FIELD_TECHNIQUE':
+      return { ...state, editFieldTechnique: action.payload }
+    
+    case 'SET_EDIT_FIELD_EFFECT':
+      return { ...state, editFieldEffect: action.payload }
+    
+    case 'CLEAR_EDIT_FIELDS':
+      return { 
+        ...state, 
+        editFieldSymbol: null,
+        editFieldArticulation: null,
+        editFieldTechnique: null,
+        editFieldEffect: null 
+      }
+    
+    case 'TOGGLE_SELECT_ONLY_MODE':
+      return { ...state, selectOnlyMode: !state.selectOnlyMode }
+    
+    case 'NEW_PROJECT':
+      // Reset to initial UI state
+      return initialState.ui
     
     default:
       return state
@@ -875,6 +1199,10 @@ function midiReducer(state = initialState.midi, action) {
     
     case 'SET_VELOCITY_THRESHOLD':
       return { ...state, velocityThreshold: action.payload }
+    
+    case 'NEW_PROJECT':
+      // Reset to initial midi state
+      return initialState.midi
     
     default:
       return state
@@ -910,6 +1238,10 @@ function layoutReducer(state = initialState.layout, action) {
     case 'SET_TEXT_SCALE':
       return { ...state, textScale: action.payload }
     
+    case 'NEW_PROJECT':
+      // Reset to initial layout state
+      return initialState.layout
+    
     default:
       return state
   }
@@ -929,6 +1261,10 @@ function breaksReducer(state = initialState.breaks, action) {
     
     case 'CLEAR_BREAKS':
       return []
+    
+    case 'NEW_PROJECT':
+      // Reset to initial breaks state
+      return initialState.breaks
     
     default:
       return state
@@ -961,6 +1297,10 @@ function themesReducer(state = initialState.themes, action) {
           [state.current]: { ...state.presets[state.current], ...action.payload }
         }
       }
+    
+    case 'NEW_PROJECT':
+      // Reset to initial themes state
+      return initialState.themes
     
     default:
       return state
@@ -1070,7 +1410,9 @@ const deserializeState = (jsonString) => {
 }
 
 export function AppProvider({ children }) {
+  console.log('AppProvider: Initializing context provider...')
   const [state, dispatch] = useReducer(rootReducer, initialState)
+  console.log('AppProvider: State initialized:', state ? 'Success' : 'Failed')
 
   // Auto-save to localStorage
   useEffect(() => {

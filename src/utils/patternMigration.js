@@ -86,6 +86,11 @@ export function migrateProjectToNewFormat(project) {
     // Ensure grid has beatSubdivisions
     section.grid = ensureBeatSubdivisions(section.grid)
     
+    // Ensure groups array exists
+    if (!section.groups) {
+      section.groups = []
+    }
+    
     // Migrate all instrument patterns
     section.instruments = section.instruments.map(instrument => ({
       ...instrument,

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
+import { makeStepKey, getSelectedCellsBetween } from '../lib/selection'
 
 export function useInteraction(dispatch, state) {
   const dragStateRef = useRef({
@@ -14,19 +15,25 @@ export function useInteraction(dispatch, state) {
     isSelecting: false,
     startPoint: null,
     endPoint: null,
-    selectedCells: new Set()
+    selectedCells: new Set(),
+    anchorCell: null // Store the anchor point for shift-drag
   })
   
-  const handleCellMouseDown = useCallback((instrumentId, position, event) => {
+  const handleCellMouseDown = useCallback((instrumentId, beatIndex, subdivision, event) => {
     const { shiftKey, ctrlKey, metaKey } = event
+    
+    console.log('[handleCellMouseDown] Called with:', { instrumentId, beatIndex, subdivision, shiftKey, ctrlKey, metaKey })
     
     // Prevent text selection while dragging
     event.preventDefault()
     
-    const cellKey = `${instrumentId}-${position}`
+    const cellKey = makeStepKey(instrumentId, beatIndex, subdivision)
+    console.log('[handleCellMouseDown] Created cellKey:', cellKey)
+    
     const hasNote = state.project.sections[state.project.currentSection]
       ?.instruments.find(i => i.id === instrumentId)
-      ?.pattern.some(n => n.position === position)
+      ?.pattern.some(n => n.beatIndex === beatIndex && n.subdivision === subdivision)
+    console.log('[handleCellMouseDown] Has note:', hasNote)
     
     if (ctrlKey || metaKey) {
       // Cmd/Ctrl + Click: Delete mode
@@ -34,118 +41,146 @@ export function useInteraction(dispatch, state) {
         // Delete single note
         dispatch({
           type: 'REMOVE_NOTE',
-          payload: { instrumentId, position }
+          payload: { instrumentId, beatIndex, subdivision }
         })
         
         // Start delete drag mode
         dragStateRef.current = {
           isDragging: true,
           dragMode: 'delete',
-          startCell: { instrumentId, position },
-          lastCell: { instrumentId, position },
+          startCell: { instrumentId, beatIndex, subdivision },
+          lastCell: { instrumentId, beatIndex, subdivision },
           paintedCells: new Set([cellKey]),
           currentNote: null
         }
       }
     } else if (shiftKey) {
-      // Shift + Click: Selection mode
-      // Toggle selection of this cell
-      if (state.ui.selectedSteps.has(cellKey)) {
-        dispatch({ type: 'REMOVE_FROM_SELECTION', payload: cellKey })
-      } else {
-        dispatch({ type: 'ADD_TO_SELECTION', payload: cellKey })
-      }
+      // Shift + Click: Selection mode (like Word text selection)
+      console.log('[handleCellMouseDown] Shift click - starting selection')
+      console.log('[handleCellMouseDown] Current selectedSteps:', Array.from(state.ui.selectedSteps))
       
-      // Start selection drag
-      dragStateRef.current = {
-        isDragging: true,
-        dragMode: 'select',
-        startCell: { instrumentId, position },
-        lastCell: { instrumentId, position },
-        paintedCells: new Set([cellKey]),
-        currentNote: null
+      // Only do range selection if there's an existing selection
+      if (state.ui.selectedSteps.size > 0 && selectionRef.current.anchorCell) {
+        // Calculate range from anchor to clicked cell
+        const selectedCells = getSelectedCellsBetween(
+          selectionRef.current.anchorCell,
+          { instrumentId, beatIndex, subdivision },
+          state.project.sections[state.project.currentSection]
+        )
+        
+        // Set the selection (don't merge, just replace)
+        dispatch({ type: 'SET_SELECTION', payload: Array.from(selectedCells) })
+        
+        // Start selection drag from anchor
+        dragStateRef.current = {
+          isDragging: true,
+          dragMode: 'select',
+          startCell: selectionRef.current.anchorCell,
+          lastCell: { instrumentId, beatIndex, subdivision },
+          paintedCells: new Set([cellKey]),
+          currentNote: null
+        }
+      } else {
+        // No selection exists - treat as regular click
+        selectionRef.current.anchorCell = { instrumentId, beatIndex, subdivision }
+        dispatch({ type: 'SET_SELECTION', payload: [cellKey] })
       }
     } else {
-      // Plain Click/Drag: Add/Edit/Paint mode
-      if (hasNote) {
-        // Click on existing note: Open edit modal
-        const note = state.project.sections[state.project.currentSection]
-          ?.instruments.find(i => i.id === instrumentId)
-          ?.pattern.find(n => n.position === position)
+      // Plain Click/Drag: Add/Edit/Paint mode OR Select-Only mode
+      
+      // Set anchor point for future shift+click selections
+      selectionRef.current.anchorCell = { instrumentId, beatIndex, subdivision }
+      
+      // Check if we're in select-only mode
+      const selectOnlyMode = state.ui.selectOnlyMode
+      
+      if (selectOnlyMode) {
+        // Select-Only Mode: Only select the cell, don't add/edit notes
+        console.log('[handleCellMouseDown] Select-only mode - just selecting cell')
         
-        if (note) {
-          // Find beat and subdivision from position
-          const section = state.project.sections[state.project.currentSection]
-          const beatSubdivisions = section.grid.beatSubdivisions || 
-            Array(section.grid.bars * section.grid.beats).fill(section.grid.subdivisions)
+        // Clear previous selection and select only this cell
+        dispatch({ type: 'SET_SELECTION', payload: [cellKey] })
+        
+        // Start selection drag (not paint)
+        dragStateRef.current = {
+          isDragging: true,
+          dragMode: 'select',
+          startCell: { instrumentId, beatIndex, subdivision },
+          lastCell: { instrumentId, beatIndex, subdivision },
+          paintedCells: new Set([cellKey]),
+          currentNote: null
+        }
+      } else {
+        // Write Mode: Normal behavior
+        if (hasNote) {
+          // Click on existing note: Open edit modal
+          const note = state.project.sections[state.project.currentSection]
+            ?.instruments.find(i => i.id === instrumentId)
+            ?.pattern.find(n => n.beatIndex === beatIndex && n.subdivision === subdivision)
           
-          let beatIndex = 0
-          let remainingPosition = position
-          
-          while (beatIndex < beatSubdivisions.length && remainingPosition >= beatSubdivisions[beatIndex]) {
-            remainingPosition -= beatSubdivisions[beatIndex]
-            beatIndex++
+          if (note) {
+            dispatch({
+              type: 'OPEN_EDIT_MODAL',
+              payload: {
+                instrumentId,
+                beatIndex,
+                subdivision,
+                symbol: note.symbol,
+                modifier: note.modifier
+              }
+            })
           }
-          
+        } else {
+          // Add note and start paint mode
           dispatch({
-            type: 'OPEN_EDIT_MODAL',
+            type: 'ADD_NOTE',
             payload: {
               instrumentId,
               beatIndex,
-              subdivision: remainingPosition,
-              symbol: note.symbol,
-              modifier: note.modifier,
-              position
+              subdivision,
+              symbol: state.ui.activeSymbol,
+              modifier: state.ui.activeModifier,
+              technique: state.ui.activeTechnique,
+              effect: state.ui.activeEffect
             }
           })
-        }
-      } else {
-        // Add note and start paint mode
-        dispatch({
-          type: 'ADD_NOTE',
-          payload: {
-            instrumentId,
-            position,
-            symbol: state.ui.activeSymbol,
-            modifier: state.ui.activeModifier
+          
+          dragStateRef.current = {
+            isDragging: true,
+            dragMode: 'paint',
+            startCell: { instrumentId, beatIndex, subdivision },
+            lastCell: { instrumentId, beatIndex, subdivision },
+            paintedCells: new Set([cellKey]),
+            currentNote: {
+              symbol: state.ui.activeSymbol,
+              modifier: state.ui.activeModifier,
+              technique: state.ui.activeTechnique,
+              effect: state.ui.activeEffect
+            }
           }
-        })
+        }
         
-        dragStateRef.current = {
-          isDragging: true,
-          dragMode: 'paint',
-          startCell: { instrumentId, position },
-          lastCell: { instrumentId, position },
-          paintedCells: new Set([cellKey]),
-          currentNote: {
-            symbol: state.ui.activeSymbol,
-            modifier: state.ui.activeModifier
-          }
-        }
-      }
-      
-      // Clear selection if not using modifier keys
-      if (!ctrlKey && !metaKey && !shiftKey) {
-        dispatch({ type: 'CLEAR_SELECTION' })
+        // Select the clicked cell after adding note
+        dispatch({ type: 'SET_SELECTION', payload: [cellKey] })
       }
     }
   }, [dispatch, state])
   
-  const handleCellMouseEnter = useCallback((instrumentId, position, event) => {
+  const handleCellMouseEnter = useCallback((instrumentId, beatIndex, subdivision, event) => {
     if (!dragStateRef.current.isDragging) return
     
-    const cellKey = `${instrumentId}-${position}`
+    const cellKey = makeStepKey(instrumentId, beatIndex, subdivision)
     const { dragMode, paintedCells } = dragStateRef.current
     
     // Don't process the same cell twice during the same drag
     if (paintedCells.has(cellKey)) return
     
-    dragStateRef.current.lastCell = { instrumentId, position }
+    dragStateRef.current.lastCell = { instrumentId, beatIndex, subdivision }
     paintedCells.add(cellKey)
     
     const hasNote = state.project.sections[state.project.currentSection]
       ?.instruments.find(i => i.id === instrumentId)
-      ?.pattern.some(n => n.position === position)
+      ?.pattern.some(n => n.beatIndex === beatIndex && n.subdivision === subdivision)
     
     switch (dragMode) {
       case 'paint':
@@ -155,9 +190,12 @@ export function useInteraction(dispatch, state) {
             type: 'ADD_NOTE',
             payload: {
               instrumentId,
-              position,
+              beatIndex,
+              subdivision,
               symbol: dragStateRef.current.currentNote.symbol,
-              modifier: dragStateRef.current.currentNote.modifier
+              modifier: dragStateRef.current.currentNote.modifier,
+              technique: dragStateRef.current.currentNote.technique,
+              effect: dragStateRef.current.currentNote.effect
             }
           })
         }
@@ -168,19 +206,22 @@ export function useInteraction(dispatch, state) {
         if (hasNote) {
           dispatch({
             type: 'REMOVE_NOTE',
-            payload: { instrumentId, position }
+            payload: { instrumentId, beatIndex, subdivision }
           })
         }
         break
         
       case 'select':
-        // Selection mode: Update area selection
-        const startCell = dragStateRef.current.startCell
+        // Selection mode: Calculate selection from anchor to current position
+        // This works like Word - selection is always just the range from anchor to current
+        const anchorCell = selectionRef.current.anchorCell || dragStateRef.current.startCell
         const selectedCells = getSelectedCellsBetween(
-          startCell,
-          { instrumentId, position },
+          anchorCell,
+          { instrumentId, beatIndex, subdivision },
           state.project.sections[state.project.currentSection]
         )
+        
+        // Replace entire selection (don't merge/accumulate)
         dispatch({ type: 'SET_SELECTION', payload: Array.from(selectedCells) })
         break
     }
@@ -196,36 +237,26 @@ export function useInteraction(dispatch, state) {
         paintedCells: new Set(),
         currentNote: null
       }
+      
+      // Don't clear anchor point - keep it for future shift+clicks
+      // Only clear anchor when clicking without shift key (handled in handleCellMouseDown)
     }
   }, [])
   
-  const handleDoubleClick = useCallback((instrumentId, position) => {
+  const handleDoubleClick = useCallback((instrumentId, beatIndex, subdivision) => {
     const section = state.project.sections[state.project.currentSection]
     const instrument = section?.instruments.find(i => i.id === instrumentId)
-    const note = instrument?.pattern.find(n => n.position === position)
+    const note = instrument?.pattern.find(n => n.beatIndex === beatIndex && n.subdivision === subdivision)
     
     if (note) {
-      // Find beat and subdivision from position
-      const beatSubdivisions = section.grid.beatSubdivisions || 
-        Array(section.grid.bars * section.grid.beats).fill(section.grid.subdivisions)
-      
-      let beatIndex = 0
-      let remainingPosition = position
-      
-      while (beatIndex < beatSubdivisions.length && remainingPosition >= beatSubdivisions[beatIndex]) {
-        remainingPosition -= beatSubdivisions[beatIndex]
-        beatIndex++
-      }
-      
       dispatch({
         type: 'OPEN_EDIT_MODAL',
         payload: {
           instrumentId,
           beatIndex,
-          subdivision: remainingPosition,
+          subdivision,
           symbol: note.symbol,
-          modifier: note.modifier,
-          position
+          modifier: note.modifier
         }
       })
     }
@@ -252,6 +283,7 @@ export function useInteraction(dispatch, state) {
         const isGridCell = e.target.closest('[data-grid-cell]')
         if (!isGridCell && state.ui.selectedSteps.size > 0) {
           dispatch({ type: 'CLEAR_SELECTION' })
+          selectionRef.current.anchorCell = null  // Clear the anchor!
         }
       }
     }
@@ -276,32 +308,3 @@ export function useInteraction(dispatch, state) {
   }
 }
 
-// Helper function to get all cells between two points
-function getSelectedCellsBetween(startCell, endCell, section) {
-  if (!section) return new Set()
-  
-  const selectedCells = new Set()
-  const instruments = section.instruments
-  
-  // Find instrument indices
-  const startInstrumentIndex = instruments.findIndex(i => i.id === startCell.instrumentId)
-  const endInstrumentIndex = instruments.findIndex(i => i.id === endCell.instrumentId)
-  
-  const minInstrument = Math.min(startInstrumentIndex, endInstrumentIndex)
-  const maxInstrument = Math.max(startInstrumentIndex, endInstrumentIndex)
-  
-  const minPosition = Math.min(startCell.position, endCell.position)
-  const maxPosition = Math.max(startCell.position, endCell.position)
-  
-  // Select all cells in the rectangle
-  for (let i = minInstrument; i <= maxInstrument; i++) {
-    const instrument = instruments[i]
-    if (!instrument) continue
-    
-    for (let pos = minPosition; pos <= maxPosition; pos++) {
-      selectedCells.add(`${instrument.id}-${pos}`)
-    }
-  }
-  
-  return selectedCells
-}

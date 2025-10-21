@@ -21,6 +21,7 @@ export const actionTypes = {
   UNDO: 'UNDO',
   REDO: 'REDO',
   CLEAR_ALL: 'CLEAR_ALL',
+  NEW_PROJECT: 'NEW_PROJECT',
   // New actions for enhanced features
   SET_PATTERN_TYPE: 'SET_PATTERN_TYPE',
   COPY_SELECTION: 'COPY_SELECTION',
@@ -146,6 +147,10 @@ export const redo = () => ({
 
 export const clearAll = () => ({
   type: actionTypes.CLEAR_ALL
+})
+
+export const newProject = () => ({
+  type: actionTypes.NEW_PROJECT
 })
 
 // New action creators for enhanced features

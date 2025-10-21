@@ -4,7 +4,7 @@ import { saveAs } from 'file-saver'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
-import { parseStepKey } from '../lib/selection'
+import { parseStepKey, makeStepKey } from '../lib/selection'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,9 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 import { ChevronDownIcon, ChevronUpIcon } from '@radix-ui/react-icons'
+import { SaveProjectModal } from './SaveProjectModal'
+import { LoadProjectModal } from './LoadProjectModal'
+import { projectManager } from '../services/ProjectManager'
 
 export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) {
   const { state, dispatch } = useAppState()
@@ -22,6 +25,12 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
     return section ? { ...section.grid } : { bars: 4, beats: 4, subdivisions: 4 }
   })
   const uploadInputRef = useRef(null)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showLoadModal, setShowLoadModal] = useState(false)
+  const [currentProjectId, setCurrentProjectId] = useState(null)
+  const [currentProjectName, setCurrentProjectName] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragCounter, setDragCounter] = useState(0)
 
   const section = state.project.sections[state.project.currentSection]
 
@@ -347,6 +356,80 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
     setShowFunctionsMenu(false)
   }
 
+  const getPatternFromSelection = () => {
+    const section = state.project.sections[state.project.currentSection]
+    if (!section || !state.ui.selectedSteps || state.ui.selectedSteps.size === 0) return null
+    
+    // Parse all selected cells to find bounds
+    const selectedCells = []
+    let minBeat = Infinity, maxBeat = -Infinity
+    let minSubdiv = Infinity, maxSubdiv = -Infinity
+    const instrumentsInvolved = new Set()
+    
+    state.ui.selectedSteps.forEach(stepKey => {
+      const parsed = parseStepKey(stepKey)
+      selectedCells.push(parsed)
+      instrumentsInvolved.add(parsed.instrumentId)
+      
+      if (parsed.beatIndex < minBeat) minBeat = parsed.beatIndex
+      if (parsed.beatIndex > maxBeat) maxBeat = parsed.beatIndex
+      if (parsed.beatIndex === minBeat && parsed.subdivision < minSubdiv) minSubdiv = parsed.subdivision
+      if (parsed.beatIndex === maxBeat && parsed.subdivision > maxSubdiv) maxSubdiv = parsed.subdivision
+    })
+    
+    // For multi-beat selections, we need to consider full beat ranges
+    const beatSubdivisions = section.grid.beatSubdivisions || 
+      Array(section.grid.bars * section.grid.beats).fill(section.grid.subdivisions || 4)
+    
+    // Build complete pattern including empty cells
+    const pattern = []
+    
+    instrumentsInvolved.forEach(instrumentId => {
+      const instrument = section.instruments.find(i => i.id === instrumentId)
+      if (!instrument) return
+      
+      for (let beat = minBeat; beat <= maxBeat; beat++) {
+        const subdivCount = beatSubdivisions[beat] || section.grid.subdivisions
+        const startSubdiv = (beat === minBeat) ? minSubdiv : 0
+        const endSubdiv = (beat === maxBeat) ? maxSubdiv : subdivCount - 1
+        
+        for (let subdiv = startSubdiv; subdiv <= endSubdiv; subdiv++) {
+          const cellKey = makeStepKey(instrumentId, beat, subdiv)
+          
+          // Check if this cell is in selection
+          if (state.ui.selectedSteps.has(cellKey)) {
+            // Find if there's a note at this position
+            const note = instrument.pattern.find(n => 
+              n.beatIndex === beat && n.subdivision === subdiv
+            )
+            
+            pattern.push({
+              instrumentId,
+              beatOffset: beat - minBeat,
+              subdivOffset: subdiv - minSubdiv,
+              hasNote: !!note,
+              note: note ? { 
+                symbol: note.symbol, 
+                modifier: note.modifier 
+              } : null
+            })
+          }
+        }
+      }
+    })
+    
+    console.log('[Copy] Complete pattern captured:', {
+      bounds: { minBeat, maxBeat, minSubdiv, maxSubdiv },
+      cellCount: pattern.length,
+      noteCount: pattern.filter(p => p.hasNote).length
+    })
+    
+    return {
+      bounds: { minBeat, maxBeat, minSubdiv, maxSubdiv },
+      pattern
+    }
+  }
+
   const handleSelectAll = () => {
     // Select all notes in current section
     const section = state.project.sections[state.project.currentSection]
@@ -380,7 +463,9 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
 
   const handleNew = () => {
     if (confirm('Create new project? Unsaved changes will be lost.')) {
-      dispatch({ type: 'CLEAR_ALL' })
+      dispatch({ type: 'NEW_PROJECT' })
+      setCurrentProjectId(null)
+      setCurrentProjectName(null)
     }
   }
 
@@ -437,79 +522,88 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
     if (state.ui.selectedSteps && state.ui.selectedSteps.size > 0) {
       // Store selectedSteps BEFORE any dispatch to avoid race condition
       const selectedStepsArray = Array.from(state.ui.selectedSteps)
-      const noteData = getNotesFromSelection()
+      const patternData = getPatternFromSelection()
       
-      // Single dispatch with unified payload for both reducers
-      dispatch({ 
-        type: 'CUT_SELECTION',
-        payload: { 
-          notes: noteData,
-          selectedSteps: selectedStepsArray 
-        }
-      })
+      if (patternData) {
+        // Single dispatch with unified payload for both reducers
+        dispatch({ 
+          type: 'CUT_SELECTION',
+          payload: { 
+            pattern: patternData,
+            selectedSteps: selectedStepsArray 
+          }
+        })
+        console.log('[Cut] Cut pattern with', patternData.pattern.length, 'cells')
+      }
     }
   }
   const handleCopy = () => {
     if (state.ui.selectedSteps && state.ui.selectedSteps.size > 0) {
-      const noteData = getNotesFromSelection()
-      dispatch({ 
-        type: 'COPY_SELECTION',
-        payload: { notes: noteData }
-      })
+      const patternData = getPatternFromSelection()
+      if (patternData) {
+        dispatch({ 
+          type: 'COPY_SELECTION',
+          payload: { pattern: patternData }
+        })
+        console.log('[Copy] Copied pattern with', patternData.pattern.length, 'cells')
+      }
     }
   }
   const handlePaste = () => {
     if (state.ui.clipboard) {
+      // Get target position from first selected cell, or default to 0,0
+      let targetBeat = 0
+      let targetSubdivision = 0
+      
+      if (state.ui.selectedSteps && state.ui.selectedSteps.size > 0) {
+        const firstSelected = Array.from(state.ui.selectedSteps)[0]
+        const parsed = parseStepKey(firstSelected)
+        targetBeat = parsed.beatIndex || 0
+        targetSubdivision = parsed.subdivision || 0
+        console.log('[Paste] Using selected cell as target:', { targetBeat, targetSubdivision })
+      } else {
+        console.log('[Paste] No selection, pasting at 0,0')
+      }
+      
       dispatch({ 
         type: 'PASTE_SELECTION',
         payload: { 
           clipboard: state.ui.clipboard,
-          targetBeat: 0,
-          targetSubdivision: 0
+          targetBeat,
+          targetSubdivision
         }
       })
     }
   }
 
   const handleSave = () => {
-    try {
-      // Convert Sets to Arrays for serialization
-      const serializable = {
-        ...state,
-        ui: {
-          ...state.ui,
-          selectedSteps: state.ui?.selectedSteps ? Array.from(state.ui.selectedSteps) : []
-        }
-      }
-      localStorage.setItem('tromklub_autosave', JSON.stringify(serializable))
-      // Trigger save event for auto-save hook
-      window.dispatchEvent(new CustomEvent('save-project'))
-      alert('Project saved successfully!')
-    } catch (error) {
-      console.error('Failed to save project:', error)
-      alert('Failed to save project. Please try again.')
-    }
+    setShowSaveModal(true)
+  }
+  
+  const handleSaveSuccess = (projectId, projectName) => {
+    setCurrentProjectId(projectId)
+    setCurrentProjectName(projectName)
   }
   
   const handleLoad = () => {
-    const saved = localStorage.getItem('tromklub_autosave')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        // Convert selectedSteps array back to Set if present
-        if (parsed.ui && Array.isArray(parsed.ui.selectedSteps)) {
-          parsed.ui.selectedSteps = new Set(parsed.ui.selectedSteps)
-        }
-        // Load the full state
-        dispatch({ type: 'LOAD_FULL_STATE', payload: parsed })
-      } catch (error) {
-        console.error('Failed to load project:', error)
-        // Clear corrupted data
-        localStorage.removeItem('tromklub_autosave')
-        alert('Failed to load saved data. The data may be corrupted.')
+    setShowLoadModal(true)
+  }
+  
+  const handleLoadProject = (projectData, metadata) => {
+    try {
+      // Convert selectedSteps array back to Set if present
+      if (projectData.ui && Array.isArray(projectData.ui.selectedSteps)) {
+        projectData.ui.selectedSteps = new Set(projectData.ui.selectedSteps)
       }
-    } else {
-      alert('No saved data found.')
+      // Load the full state
+      dispatch({ type: 'LOAD_FULL_STATE', payload: projectData })
+      
+      // Update current project info
+      setCurrentProjectId(metadata.id)
+      setCurrentProjectName(metadata.name)
+    } catch (error) {
+      console.error('Failed to load project:', error)
+      alert('Failed to load project. The data may be corrupted.')
     }
   }
   
@@ -533,40 +627,82 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
   const handleUpload = async (e) => {
     const file = e.target.files[0]
     if (file) {
-      try {
-        const text = await file.text()
-        const data = JSON.parse(text)
-        
-        if (data.project) {
-          dispatch({ type: 'LOAD_PROJECT', payload: data.project })
-        }
-        if (data.layout) {
-          dispatch({ type: 'UPDATE_LAYOUT', payload: data.layout })
-        }
-        if (data.themes) {
-          dispatch({ type: 'SET_THEME', payload: data.themes.current })
-        }
-      } catch (error) {
-        console.error('Failed to upload project:', error)
-        alert('Failed to load project file')
+      await processFile(file)
+    }
+  }
+
+  const processFile = async (file) => {
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      
+      if (data.project) {
+        dispatch({ type: 'LOAD_PROJECT', payload: data.project })
+      }
+      if (data.layout) {
+        dispatch({ type: 'UPDATE_LAYOUT', payload: data.layout })
+      }
+      if (data.themes) {
+        dispatch({ type: 'SET_THEME', payload: data.themes.current })
+      }
+    } catch (error) {
+      console.error('Failed to upload project:', error)
+      alert('Failed to load project file')
+    }
+  }
+
+  const handleDragEnter = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragCounter(prev => prev + 1)
+    
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const hasJsonFile = Array.from(e.dataTransfer.items).some(item => {
+        return item.kind === 'file' && (item.type === 'application/json' || item.type === '')
+      })
+      if (hasJsonFile) {
+        setIsDragging(true)
       }
     }
   }
 
-  const handleClear = () => {
-    if (confirm('Clear all notes? This cannot be undone.')) {
-      dispatch({ type: 'CLEAR_ALL' })
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragCounter(prev => {
+      const newCounter = prev - 1
+      if (newCounter === 0) {
+        setIsDragging(false)
+      }
+      return newCounter
+    })
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    setDragCounter(0)
+
+    const files = Array.from(e.dataTransfer.files)
+    const jsonFile = files.find(file => 
+      file.type === 'application/json' || 
+      file.name.endsWith('.json')
+    )
+
+    if (jsonFile) {
+      await processFile(jsonFile)
+    } else if (files.length > 0) {
+      alert('Please drop a valid JSON file')
     }
   }
 
-  const handleNewProject = () => {
-    if (confirm('Start a new project? Current work will be lost if not saved.')) {
-      // Clear localStorage
-      localStorage.removeItem('tromklub_autosave')
-      // Reload the page to get fresh defaults
-      window.location.reload()
-    }
-  }
+
 
   const handleUpdateGrid = () => {
     const totalBeats = gridValues.bars * gridValues.beats
@@ -594,8 +730,8 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
   return (
     <div className="space-y-2">
       {/* Main Control Bar */}
-      <div className="px-4 py-2">
-        <div className="flex items-center gap-1">
+      <div className="px-4 py-2 overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-fit">
           {/* Functions dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -633,9 +769,19 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
           <Button size="sm" onClick={handleLoad}>Load</Button>
           <Button size="sm" onClick={handleDownload}>Download</Button>
           
-          <Button size="sm" asChild>
-            <label className="cursor-pointer">
-              Upload
+          <Button 
+            size="sm" 
+            asChild
+            className={isDragging ? "ring-2 ring-blue-500 ring-offset-2" : ""}
+          >
+            <label 
+              className="cursor-pointer relative"
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+              {isDragging ? "Drop JSON file" : "Upload"}
               <input
                 ref={uploadInputRef}
                 type="file"
@@ -646,9 +792,11 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
             </label>
           </Button>
           
-          <Button size="sm" variant="secondary" onClick={handleNewProject}>New Project</Button>
-          <Button size="sm" variant="danger" onClick={handleClear}>Clear</Button>
-          <Button size="sm" variant="primary" onClick={() => onExport('custom')}>Export</Button>
+          <div className="border-l border-daw-border h-6 mx-2" />
+          
+          <Button size="sm" variant="primary" onClick={() => onExport('custom')} className="font-bold">
+            Export PDF/PNG
+          </Button>
           
           <div className="border-l border-daw-border h-6 mx-2" />
           
@@ -678,6 +826,21 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
           </div>
         </div>
       </div>
+
+      <SaveProjectModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        currentState={state}
+        existingProject={currentProjectId ? { id: currentProjectId, name: currentProjectName } : null}
+        onSaveSuccess={handleSaveSuccess}
+      />
+      
+      <LoadProjectModal
+        isOpen={showLoadModal}
+        onClose={() => setShowLoadModal(false)}
+        onLoadProject={handleLoadProject}
+        currentProjectId={currentProjectId}
+      />
 
     </div>
   )

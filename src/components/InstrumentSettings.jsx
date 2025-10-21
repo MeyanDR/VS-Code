@@ -47,14 +47,15 @@ const InstrumentSettings = ({
               onChange={(e) => setSettings({ ...settings, subdivision: parseInt(e.target.value) })}
               className="w-full px-3 py-2 bg-gray-700 text-white rounded-md border border-gray-600 focus:border-cyan-400 focus:outline-none"
             >
-              <option value="1">Whole</option>
-              <option value="2">Half</option>
-              <option value="3">Triplet</option>
-              <option value="4">Quarter</option>
-              <option value="5">Quintuplet</option>
-              <option value="6">Sextuplet</option>
-              <option value="7">Septuplet</option>
-              <option value="8">Eighth</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
             </select>
           </div>
 
