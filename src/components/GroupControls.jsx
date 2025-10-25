@@ -2,17 +2,28 @@ import React from 'react'
 
 export default function GroupControls({ 
   onCreateGroup, 
+  onAddToGroup,
   instrumentAboveId, 
   instrumentBelowId,
+  groupId,
+  instrumentToAdd,
+  mode = 'create', // 'create' or 'add'
   isVisible = true 
 }) {
   const handleClick = () => {
-    if (instrumentAboveId && instrumentBelowId) {
+    if (mode === 'add' && groupId && instrumentToAdd && onAddToGroup) {
+      onAddToGroup(groupId, instrumentToAdd)
+    } else if (mode === 'create' && instrumentAboveId && instrumentBelowId && onCreateGroup) {
       onCreateGroup([instrumentAboveId, instrumentBelowId])
     }
   }
   
   if (!isVisible) return null
+  
+  const isAddMode = mode === 'add'
+  const title = isAddMode 
+    ? "Add instrument to group" 
+    : "Group these instruments together"
   
   return (
     <div className="flex justify-center items-center w-full py-1">
@@ -26,7 +37,7 @@ export default function GroupControls({
           transition-all duration-200 transform hover:scale-110
           group opacity-60 hover:opacity-100
         "
-        title="Group these instruments together"
+        title={title}
       >
         <svg 
           className="w-4 h-4 text-gray-300 group-hover:text-white transition-colors duration-200" 

@@ -13,9 +13,9 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { SortableInstrument } from './SortableInstrument'
 
 // Constants for fixed layout
-const BEAT_UNIT_WIDTH = 140  // Total width for beat anchor + subdivisions
-const BEAT_ANCHOR_WIDTH = 40  // Width of the beat anchor box
-const GAP_AFTER_ANCHOR = 8  // Gap between anchor and subdivisions (gap-2 = 8px)
+const BEAT_UNIT_WIDTH = 180  // Total width for beat anchor + subdivisions (increased for better step sizes)
+const BEAT_ANCHOR_WIDTH = 36  // Width of the beat anchor box (reduced from 40)
+const GAP_AFTER_ANCHOR = 12  // Gap between anchor and subdivisions (increased to prevent overlap)
 const SUBDIVISION_AREA_WIDTH = BEAT_UNIT_WIDTH - BEAT_ANCHOR_WIDTH - GAP_AFTER_ANCHOR
 const STEP_GAP = 2  // Gap between subdivision steps (gap-0.5 = 2px)
 
@@ -114,6 +114,13 @@ export default function Grid({ interaction }) {
     dispatch({
       type: 'CREATE_GROUP',
       payload: { instrumentIds }
+    })
+  }
+  
+  const handleAddToGroup = (groupId, instrumentId) => {
+    dispatch({
+      type: 'ADD_INSTRUMENT_TO_GROUP',
+      payload: { groupId, instrumentId }
     })
   }
   
@@ -393,15 +400,15 @@ export default function Grid({ interaction }) {
         {/* Toggle switch */}
         <button
           onClick={() => handleToggleInstrument(instrument.id)}
-          className="w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
+          className="w-8 h-4 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
           style={{
             backgroundColor: isVisible ? '#06b6d4' : '#374151'
           }}
         >
           <div 
-            className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200"
+            className="w-3 h-3 bg-white rounded-full shadow-md transform transition-transform duration-200"
             style={{
-              transform: isVisible ? 'translateX(26px)' : 'translateX(2px)'
+              transform: isVisible ? 'translateX(18px)' : 'translateX(2px)'
             }}
           />
         </button>
@@ -429,7 +436,7 @@ export default function Grid({ interaction }) {
         </button>
         
         {/* Instrument label - fixed position */}
-        <div className="w-24 flex-shrink-0">
+        <div className="w-20 flex-shrink-0">
           <EditableText
             value={instrument.name}
             onSave={(newName) => handleInstrumentNameChange(instrument.id, newName)}
@@ -476,15 +483,15 @@ export default function Grid({ interaction }) {
               {/* Toggle switch */}
               <button
                 onClick={() => handleToggleInstrument(instrument.id)}
-                className="w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
+                className="w-8 h-4 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
                 style={{
                   backgroundColor: isVisible ? '#06b6d4' : '#374151'
                 }}
               >
                 <div 
-                  className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200"
+                  className="w-3 h-3 bg-white rounded-full shadow-md transform transition-transform duration-200"
                   style={{
-                    transform: isVisible ? 'translateX(26px)' : 'translateX(2px)'
+                    transform: isVisible ? 'translateX(18px)' : 'translateX(2px)'
                   }}
                 />
               </button>
@@ -506,7 +513,7 @@ export default function Grid({ interaction }) {
               </button>
               
               {/* Instrument label */}
-              <div className="w-24 flex-shrink-0">
+              <div className="w-20 flex-shrink-0">
                 <EditableText
                   value={instrument.name}
                   onSave={(newName) => handleInstrumentNameChange(instrument.id, newName)}
@@ -520,7 +527,7 @@ export default function Grid({ interaction }) {
           
           {/* Spacer for continuation lines */}
           {rangeStart > 0 && (
-            <div className="w-44 flex-shrink-0" /> 
+            <div className="w-40 flex-shrink-0" /> 
           )}
           
           {/* Bars for this range */}
@@ -555,7 +562,7 @@ export default function Grid({ interaction }) {
         {renderRanges.map((range, rangeIndex) => (
           <div 
             key={`range-${rangeIndex}`}
-            className="bg-gray-900/30 rounded-xl p-5 border border-cyan-900/30 shadow-lg"
+            className="bg-gray-900/30 rounded-xl py-5 px-1 border border-cyan-900/30 shadow-lg"
           >
             {/* Range header with controls */}
             <div className="flex items-center justify-between mb-5">
@@ -575,7 +582,7 @@ export default function Grid({ interaction }) {
             
             {/* Instruments for this range */}
             <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
-              <div className="min-w-min space-y-3">
+              <div className="space-y-3 pr-20" style={{ minWidth: `${BEAT_UNIT_WIDTH * (range.end - range.start + 1) * grid.beats}px` }}>
                 {rangeIndex === 0 ? (
                   /* First range with drag and drop */
                   <DndContext
@@ -655,15 +662,14 @@ export default function Grid({ interaction }) {
                                 </div>
                                 
                                 {/* Render entire group in one container */}
-                                <div className="relative flex items-stretch mb-3">
-                                  {/* Group brace on the left */}
-                                  <div className="mr-2" style={{ height: `${groupHeight}px` }}>
+                                <div className="flex items-stretch mb-3 gap-3">
+                                  {/* Group indicator on the left */}
+                                  <div className="flex-shrink-0 flex items-center pt-4">
                                     <GroupBrace
                                       height={groupHeight}
                                     />
                                   </div>
                                 
-                                  
                                   {/* Stack of grouped instruments */}
                                   <div className="flex-1 space-y-3">
                                     {(group.collapsed ? [groupInstruments[0]] : groupInstruments).map(groupInstrument => {
@@ -678,57 +684,60 @@ export default function Grid({ interaction }) {
                                                 ${isDragging ? 'opacity-50' : ''}
                                               `}
                                             >
-                                              <div className={`flex items-center gap-2 ${!isVisible ? 'opacity-50' : ''}`}>
-                                                {/* Toggle switch */}
-                                                <button
-                                                  onClick={() => handleToggleInstrument(groupInstrument.id)}
-                                    className="w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
-                                    style={{
-                                      backgroundColor: isVisible ? '#06b6d4' : '#374151'
-                                    }}
-                                  >
-                                    <div 
-                                      className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200"
-                                      style={{
-                                        transform: isVisible ? 'translateX(26px)' : 'translateX(2px)'
-                                      }}
-                                    />
-                                  </button>
-                                  
-                                                {/* Settings/drag handle */}
-                                                <button
-                                                  {...dragHandleProps}
-                                                  onClick={(e) => {
-                                                    if (!e.defaultPrevented) {
-                                                      setShowInstrumentSettings(groupInstrument)
-                                      }
-                                    }}
-                                    className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
-                                    title="Drag to reorder / Click for settings"
-                                  >
-                                    <svg className="w-5 h-5 text-gray-400 hover:text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
-                                      <circle cx="6" cy="6" r="1.5" />
-                                      <circle cx="10" cy="6" r="1.5" />
-                                      <circle cx="14" cy="6" r="1.5" />
-                                      <circle cx="6" cy="14" r="1.5" />
-                                      <circle cx="10" cy="14" r="1.5" />
-                                      <circle cx="14" cy="14" r="1.5" />
-                                    </svg>
-                                  </button>
-                                  
-                                                {/* Instrument label */}
-                                                <div className="w-24 flex-shrink-0">
-                                                  <EditableText
-                                                    value={groupInstrument.name}
-                                                    onSave={(newName) => handleInstrumentNameChange(groupInstrument.id, newName)}
-                                      className="text-sm font-semibold text-cyan-300"
-                                      inputClassName="text-sm font-semibold"
-                                      maxLength={20}
-                                    />
-                                  </div>
-                                  
-                                                {/* Bars for this range */}
-                                                <div className="flex-1">
+                                              <div className={`${!isVisible ? 'opacity-50' : ''}`}>
+                                                {/* Instrument name above the beat sequence */}
+                                                <div className="mb-3 flex items-center gap-2">
+                                                  {/* Toggle switch */}
+                                                  <button
+                                                    onClick={() => handleToggleInstrument(groupInstrument.id)}
+                                                    className="w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
+                                                    style={{
+                                                      backgroundColor: isVisible ? '#06b6d4' : '#374151'
+                                                    }}
+                                                  >
+                                                    <div 
+                                                      className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200"
+                                                      style={{
+                                                        transform: isVisible ? 'translateX(20px)' : 'translateX(2px)'
+                                                      }}
+                                                    />
+                                                  </button>
+                                                  
+                                                  {/* Settings/drag handle */}
+                                                  <button
+                                                    {...dragHandleProps}
+                                                    onClick={(e) => {
+                                                      if (!e.defaultPrevented) {
+                                                        setShowInstrumentSettings(groupInstrument)
+                                                      }
+                                                    }}
+                                                    className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
+                                                    title="Drag to reorder / Click for settings"
+                                                  >
+                                                    <svg className="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
+                                                      <circle cx="6" cy="6" r="1.5" />
+                                                      <circle cx="10" cy="6" r="1.5" />
+                                                      <circle cx="14" cy="6" r="1.5" />
+                                                      <circle cx="6" cy="14" r="1.5" />
+                                                      <circle cx="10" cy="14" r="1.5" />
+                                                      <circle cx="14" cy="14" r="1.5" />
+                                                    </svg>
+                                                  </button>
+                                                  
+                                                  {/* Instrument label - now as header */}
+                                                  <div className="flex-1">
+                                                    <EditableText
+                                                      value={groupInstrument.name}
+                                                      onSave={(newName) => handleInstrumentNameChange(groupInstrument.id, newName)}
+                                                      className="text-base font-semibold text-cyan-300"
+                                                      inputClassName="text-base font-semibold"
+                                                      maxLength={20}
+                                                    />
+                                                  </div>
+                                                </div>
+                                                
+                                                {/* Bars for this range - full width */}
+                                                <div className="w-full">
                                                   <div className="inline-flex items-center gap-0">
                                                     {Array.from({ length: range.end - range.start + 1 }, (_, i) => {
                                                       const barIndex = range.start + i
@@ -753,6 +762,36 @@ export default function Grid({ interaction }) {
                                     })}
                                   </div>
                                 </div>
+                                
+                                {/* Add to group button after group if next instrument can be added */}
+                                {(() => {
+                                  // Find the next instrument after this group
+                                  const lastGroupMemberIndex = instruments.findIndex(i => 
+                                    i.id === group.instrumentIds[group.instrumentIds.length - 1]
+                                  )
+                                  const nextInstrument = instruments[lastGroupMemberIndex + 1]
+                                  const canAddToGroup = nextInstrument && !getInstrumentGroup(nextInstrument.id)
+                                  
+                                  if (canAddToGroup) {
+                                    return (
+                                      <div className="flex items-center gap-2 pl-4 py-1">
+                                        {/* Spacer to align with toggle + settings buttons */}
+                                        <div className="w-8" />
+                                        <div className="w-5" />
+                                        {/* Group button positioned where instrument name would be */}
+                                        <div className="w-20 flex-shrink-0 flex justify-center">
+                                          <GroupControls
+                                            mode="add"
+                                            onAddToGroup={handleAddToGroup}
+                                            groupId={group.id}
+                                            instrumentToAdd={nextInstrument.id}
+                                          />
+                                        </div>
+                                      </div>
+                                    )
+                                  }
+                                  return null
+                                })()}
                               </React.Fragment>
                             )
                           }
@@ -774,57 +813,60 @@ export default function Grid({ interaction }) {
                                           ${isDragging ? 'opacity-50' : ''}
                                         `}
                                       >
-                                        <div className={`flex items-center gap-2 ${!isVisible ? 'opacity-50' : ''}`}>
-                                          {/* Toggle switch */}
-                                          <button
-                                            onClick={() => handleToggleInstrument(instrument.id)}
-                                            className="w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
-                                            style={{
-                                              backgroundColor: isVisible ? '#06b6d4' : '#374151'
-                                            }}
-                                          >
-                                            <div 
-                                              className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200"
+                                        <div className={`${!isVisible ? 'opacity-50' : ''}`}>
+                                          {/* Instrument name above the beat sequence */}
+                                          <div className="mb-3 flex items-center gap-2">
+                                            {/* Toggle switch */}
+                                            <button
+                                              onClick={() => handleToggleInstrument(instrument.id)}
+                                              className="w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900"
                                               style={{
-                                                transform: isVisible ? 'translateX(26px)' : 'translateX(2px)'
+                                                backgroundColor: isVisible ? '#06b6d4' : '#374151'
                                               }}
-                                            />
-                                          </button>
-                                          
-                                          {/* Settings/drag handle */}
-                                          <button
-                                            {...dragHandleProps}
-                                            onClick={(e) => {
-                                              if (!e.defaultPrevented) {
-                                                setShowInstrumentSettings(instrument)
-                                              }
-                                            }}
-                                            className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
-                                            title="Drag to reorder / Click for settings"
-                                          >
-                                            <svg className="w-5 h-5 text-gray-400 hover:text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
-                                              <circle cx="6" cy="6" r="1.5" />
-                                              <circle cx="10" cy="6" r="1.5" />
-                                              <circle cx="14" cy="6" r="1.5" />
-                                              <circle cx="6" cy="14" r="1.5" />
-                                              <circle cx="10" cy="14" r="1.5" />
-                                              <circle cx="14" cy="14" r="1.5" />
-                                            </svg>
-                                          </button>
-                                          
-                                          {/* Instrument label */}
-                                          <div className="w-24 flex-shrink-0">
-                                            <EditableText
-                                              value={instrument.name}
-                                              onSave={(newName) => handleInstrumentNameChange(instrument.id, newName)}
-                                              className="text-sm font-semibold text-cyan-300"
-                                              inputClassName="text-sm font-semibold"
-                                              maxLength={20}
-                                            />
+                                            >
+                                              <div 
+                                                className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200"
+                                                style={{
+                                                  transform: isVisible ? 'translateX(20px)' : 'translateX(2px)'
+                                                }}
+                                              />
+                                            </button>
+                                            
+                                            {/* Settings/drag handle */}
+                                            <button
+                                              {...dragHandleProps}
+                                              onClick={(e) => {
+                                                if (!e.defaultPrevented) {
+                                                  setShowInstrumentSettings(instrument)
+                                                }
+                                              }}
+                                              className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
+                                              title="Drag to reorder / Click for settings"
+                                            >
+                                              <svg className="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
+                                                <circle cx="6" cy="6" r="1.5" />
+                                                <circle cx="10" cy="6" r="1.5" />
+                                                <circle cx="14" cy="6" r="1.5" />
+                                                <circle cx="6" cy="14" r="1.5" />
+                                                <circle cx="10" cy="14" r="1.5" />
+                                                <circle cx="14" cy="14" r="1.5" />
+                                              </svg>
+                                            </button>
+                                            
+                                            {/* Instrument label - now as header */}
+                                            <div className="flex-1">
+                                              <EditableText
+                                                value={instrument.name}
+                                                onSave={(newName) => handleInstrumentNameChange(instrument.id, newName)}
+                                                className="text-base font-semibold text-cyan-300"
+                                                inputClassName="text-base font-semibold"
+                                                maxLength={20}
+                                              />
+                                            </div>
                                           </div>
                                           
-                                          {/* Bars for this range */}
-                                          <div className="flex-1">
+                                          {/* Bars for this range - full width */}
+                                          <div className="w-full">
                                             <div className="inline-flex items-center gap-0">
                                               {Array.from({ length: range.end - range.start + 1 }, (_, i) => {
                                                 const barIndex = range.start + i
@@ -852,10 +894,10 @@ export default function Grid({ interaction }) {
                               {canCreateGroupWithNext && (
                                 <div className="flex items-center gap-2 pl-4 py-1">
                                   {/* Spacer to align with toggle + settings buttons */}
-                                  <div className="w-12" />
+                                  <div className="w-8" />
                                   <div className="w-5" />
                                   {/* Group button positioned where instrument name would be */}
-                                  <div className="w-24 flex-shrink-0 flex justify-center">
+                                  <div className="w-20 flex-shrink-0 flex justify-center">
                                     <GroupControls
                                       onCreateGroup={handleCreateGroup}
                                       instrumentAboveId={instrument.id}
@@ -886,12 +928,9 @@ export default function Grid({ interaction }) {
                           group ? 'border-cyan-600/30 ml-12 bg-cyan-900/5' : 'border-gray-800'
                         }`}
                       >
-                        <div className={`flex items-center gap-2 ${!isVisible ? 'opacity-50' : ''}`}>
-                          {/* Spacer to align with first range */}
-                          <div className="w-44 flex-shrink-0" />
-                          
-                          {/* Bars for this range */}
-                          <div className="flex-1">
+                        <div className={`${!isVisible ? 'opacity-50' : ''}`}>
+                          {/* For continuation lines, just show the beat sequence without controls */}
+                          <div className="w-full">
                             <div className="inline-flex items-center gap-0">
                               {Array.from({ length: range.end - range.start + 1 }, (_, i) => {
                                 const barIndex = range.start + i

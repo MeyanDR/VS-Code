@@ -4,6 +4,7 @@ import { saveAs } from 'file-saver'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { ChevronUpIcon, ChevronDownIcon } from '@radix-ui/react-icons'
 import { parseStepKey, makeStepKey } from '../lib/selection'
 import {
   DropdownMenu,
@@ -12,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
-import { ChevronDownIcon, ChevronUpIcon } from '@radix-ui/react-icons'
 import { SaveProjectModal } from './SaveProjectModal'
 import { LoadProjectModal } from './LoadProjectModal'
 import { projectManager } from '../services/ProjectManager'
@@ -794,8 +794,8 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
           
           <div className="border-l border-daw-border h-6 mx-2" />
           
-          <Button size="sm" variant="primary" onClick={() => onExport('custom')} className="font-bold">
-            Export PDF/PNG
+          <Button size="sm" variant="primary" onClick={() => onExport('custom')}>
+            Export PDF/JPG
           </Button>
           
           <div className="border-l border-daw-border h-6 mx-2" />
@@ -856,35 +856,38 @@ function NumberInput({ label, value, onChange }) {
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <Label className="text-xs">{label}:</Label>
+    <div className="flex flex-col items-center gap-1">
+      <Label className="text-xs">{label}</Label>
       
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-5 w-5"
-        onClick={handleDecrement}
-      >
-        <ChevronDownIcon className="h-3 w-3" />
-      </Button>
-      
-      <Input
-        type="number"
-        value={value}
-        onChange={(e) => onChange(parseInt(e.target.value))}
-        min="1"
-        max="32"
-        className="w-10 h-6 text-center text-xs px-1"
-      />
-      
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-5 w-5"
-        onClick={handleIncrement}
-      >
-        <ChevronUpIcon className="h-3 w-3" />
-      </Button>
+      <div className="relative">
+        <Input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(parseInt(e.target.value))}
+          min="1"
+          max="32"
+          className="w-12 h-6 text-center text-xs px-1 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
+        />
+        
+        <div className="absolute right-1 top-0 h-full flex flex-col justify-center">
+          <Button
+            size="xs"
+            variant="ghost"
+            className="h-2.5 w-4 p-0 hover:bg-daw-button-hover"
+            onClick={handleIncrement}
+          >
+            <ChevronUpIcon className="h-3 w-3 text-daw-text-secondary" />
+          </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            className="h-2.5 w-4 p-0 hover:bg-daw-button-hover"
+            onClick={handleDecrement}
+          >
+            <ChevronDownIcon className="h-3 w-3 text-daw-text-secondary" />
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

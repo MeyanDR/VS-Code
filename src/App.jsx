@@ -408,7 +408,7 @@ function AppContent() {
           
           {/* Main Grid Area */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto p-6 bg-daw-bg-primary">
+            <div className="flex-1 overflow-auto py-6 px-2 bg-daw-bg-primary">
               <Grid interaction={interaction} />
             </div>
             

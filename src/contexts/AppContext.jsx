@@ -3,7 +3,7 @@ import { migrateProjectToNewFormat } from '../utils/patternMigration'
 import { arrayMove } from '@dnd-kit/sortable'
 
 const initialState = {
-  schemaVersion: 2,  // Version 2: Changed from 4 drum instruments to single "Instrument 1"
+  schemaVersion: 3,  // Version 3: Changed default from 4 bars to 2 bars (beats 1.1-2.4)
   project: {
     name: 'Untitled',
     sections: {
@@ -25,10 +25,10 @@ const initialState = {
         ],
         groups: [], // Array of instrument groups
         grid: {
-          bars: 4,
+          bars: 2,
           beats: 4,
           subdivisions: 4,  // Keep for backward compatibility
-          beatSubdivisions: Array(16).fill(4)  // 4 bars * 4 beats = 16 beats total
+          beatSubdivisions: Array(8).fill(4)  // 2 bars * 4 beats = 8 beats total
         }
       }
     },
@@ -835,6 +835,46 @@ function projectReducer(state = initialState.project, action) {
           [state.currentSection]: {
             ...section,
             groups: [...(section.groups || []), newGroup],
+            instruments: updatedInstruments
+          }
+        }
+      }
+    }
+    
+    case 'ADD_INSTRUMENT_TO_GROUP': {
+      const section = state.sections[state.currentSection]
+      const { groupId, instrumentId } = action.payload
+      
+      // Find the group to add to
+      const group = (section.groups || []).find(g => g.id === groupId)
+      if (!group) return state
+      
+      // Check if instrument is already in this group
+      if (group.instrumentIds.includes(instrumentId)) return state
+      
+      // Update the group to include the new instrument
+      const updatedGroups = (section.groups || []).map(g => {
+        if (g.id === groupId) {
+          return { ...g, instrumentIds: [...g.instrumentIds, instrumentId] }
+        }
+        return g
+      })
+      
+      // Update the instrument to have the groupId
+      const updatedInstruments = section.instruments.map(instrument => {
+        if (instrument.id === instrumentId) {
+          return { ...instrument, groupId: groupId }
+        }
+        return instrument
+      })
+      
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            groups: updatedGroups,
             instruments: updatedInstruments
           }
         }
