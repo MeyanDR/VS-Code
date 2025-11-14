@@ -5,24 +5,40 @@ export function parseStepKey(stepKey) {
   if (typeof stepKey !== 'string') {
     return { instrumentId: '', beatIndex: NaN, subdivision: NaN }
   }
-  
+
   // Split by dash, but instrument IDs may contain dashes
   // Format: instrumentId-beatIndex-subdivision
-  // So we split on the last two dashes
+  // Subdivision can be a number OR a JSON array for nested paths
   const parts = stepKey.split('-')
   if (parts.length < 3) {
     return { instrumentId: stepKey, beatIndex: NaN, subdivision: NaN }
   }
-  
-  const subdivision = parseInt(parts.pop(), 10)
+
+  const subdivString = parts.pop()
   const beatIndex = parseInt(parts.pop(), 10)
   const instrumentId = parts.join('-') // Rejoin remaining parts for instrument ID
-  
+
+  // Try to parse as JSON array for nested paths, fallback to number
+  let subdivision
+  if (subdivString.startsWith('[')) {
+    try {
+      subdivision = JSON.parse(subdivString)
+    } catch {
+      subdivision = parseInt(subdivString, 10)
+    }
+  } else {
+    subdivision = parseInt(subdivString, 10)
+  }
+
   return { instrumentId, beatIndex, subdivision }
 }
 
 export function makeStepKey(instrumentId, beatIndex, subdivision) {
-  return `${instrumentId}-${beatIndex}-${subdivision}`
+  // Handle array paths for nested subdivisions using JSON serialization
+  const subdivPath = Array.isArray(subdivision)
+    ? JSON.stringify(subdivision)
+    : subdivision
+  return `${instrumentId}-${beatIndex}-${subdivPath}`
 }
 
 // Helper function to get all cells between two points using beat/subdivision coordinates

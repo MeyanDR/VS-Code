@@ -3,7 +3,7 @@ import { migrateProjectToNewFormat } from '../utils/patternMigration'
 import { arrayMove } from '@dnd-kit/sortable'
 
 const initialState = {
-  schemaVersion: 3,  // Version 3: Changed default from 4 bars to 2 bars (beats 1.1-2.4)
+  schemaVersion: 4,  // Version 4: Added section metadata (tempo, type) and export config
   project: {
     name: 'Untitled',
     sections: {
@@ -11,6 +11,11 @@ const initialState = {
         id: 'intro',
         name: 'Intro',
         notes: '',
+        metadata: {
+          tempo: 120,
+          type: 'loop',  // 'loop' or 'break'
+          loopLength: null  // Optional custom loop length in beats
+        },
         instruments: [
           {
             id: 'instrument1',
@@ -34,6 +39,48 @@ const initialState = {
     },
     currentSection: 'intro'
   },
+  exportConfig: {
+    scope: 'current',  // 'current' | 'full' | 'selected'
+    selectedSections: [],
+    format: 'pdf',  // 'pdf' | 'jpg'
+    pageSize: 'A4',  // 'A4' | 'Letter' | 'A3'
+    orientation: 'portrait',  // 'portrait' | 'landscape'
+    quality: 90,  // For JPG export
+    layout: {
+      barsPerLine: 4,
+      margins: { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 },  // mm (1 inch standard margins)
+      spacing: {
+        sectionGap: 30,
+        barGap: 8,
+        beatGap: 4,
+        lineGap: 20
+      },
+      cellWidth: 24,
+      typography: {
+        titleSize: 32,
+        sectionNameSize: 20,
+        instrumentLabelSize: 14,
+        symbolSize: 16,
+        metadataSize: 11,
+        legendSize: 12,
+        fontFamily: 'Arial, sans-serif'
+      },
+      beatShading: true,
+      shadingPattern: [1, 3],  // Which beats to shade (0-indexed)
+      gridStyle: 'full',  // 'full' | 'minimal'
+      showTitle: true,
+      showTempo: true,
+      showSectionMetadata: true,
+      showSectionNotes: true,
+      showBarNumbers: true,
+      showBeatNumbers: true,
+      showInstrumentLabels: true,
+      showLegend: true,
+      legendPosition: 'bottom',  // 'bottom' | 'end' | 'each-page'
+      repeatHeadersOnNewPage: true,
+      repeatInstrumentLabelsOnNewPage: true
+    }
+  },
   ui: {
     selectedSteps: new Set(),
     selectOnlyMode: false,
@@ -50,6 +97,7 @@ const initialState = {
     dragMode: null,
     isDragging: false,
     clipboard: null,
+    gridScale: 1.0,
     availableSymbols: [
       { value: 'o', label: 'Open Note', description: 'Basic open note / Normal hit', shortcut: '' },
       { value: 'x', label: 'Cross Note', description: 'Muted or closed note / Stick shot', shortcut: '' },
@@ -64,7 +112,7 @@ const initialState = {
   layout: {
     pageSize: 'A4',
     orientation: 'portrait',
-    margins: { top: 20, bottom: 20, left: 20, right: 20 },
+    margins: { top: 25.4, bottom: 25.4, left: 25.4, right: 25.4 }, // 1 inch standard margins
     barsPerLine: { min: 2, max: 4 },
     cellWidth: 20,
     beatGap: 4,
@@ -120,9 +168,27 @@ const AppContext = createContext()
 
 function shouldAddToHistory(action) {
   const historyActions = [
+    // Pattern operations (already tracked)
     'ADD_NOTE', 'REMOVE_NOTE', 'UPDATE_NOTE', 'CLEAR_ALL',
     'UPDATE_GRID', 'PASTE_SELECTION', 'CUT_SELECTION',
-    'UPDATE_BEAT_SUBDIVISION'
+    'UPDATE_BEAT_SUBDIVISION', 'UPDATE_GRID_BEAT_SUBDIVISION',
+    'UPDATE_NESTED_SUBDIVISION',
+
+    // Instrument operations (NEW)
+    'ADD_INSTRUMENT', 'DELETE_INSTRUMENT', 'UPDATE_INSTRUMENT_NAME',
+    'UPDATE_INSTRUMENT_SETTINGS', 'REORDER_INSTRUMENTS',
+    'TOGGLE_INSTRUMENT_VISIBILITY',
+
+    // Section operations (NEW)
+    'ADD_SECTION', 'DELETE_SECTION', 'DUPLICATE_SECTION',
+    'UPDATE_SECTION', 'UPDATE_SECTION_METADATA', 'REORDER_SECTIONS',
+
+    // Group operations (NEW)
+    'CREATE_GROUP', 'ADD_INSTRUMENT_TO_GROUP', 'UNGROUP',
+    'UPDATE_GROUP_NAME',
+
+    // Project operations (NEW)
+    'SET_PROJECT_NAME'
   ]
   return historyActions.includes(action.type)
 }
@@ -143,22 +209,27 @@ function projectReducer(state = initialState.project, action) {
       }
       
       const newPattern = [...instrument.pattern]
-      
+
       // Find existing note at this musical position
-      const existingIndex = newPattern.findIndex(n => 
-        n.beatIndex === beatIndex && n.subdivision === subdivision
-      )
-      
+      // Support both flat subdivision (number) and nested paths (array)
+      const existingIndex = newPattern.findIndex(n => {
+        if (n.beatIndex !== beatIndex) return false
+        if (Array.isArray(n.subdivision) && Array.isArray(subdivision)) {
+          return JSON.stringify(n.subdivision) === JSON.stringify(subdivision)
+        }
+        return n.subdivision === subdivision
+      })
+
       const newNote = {
         beatIndex,
-        subdivision,
+        subdivision, // Can be number or array
         symbol: symbol || 'o',
         modifier: modifier || '',
         technique: technique || '',
         effect: effect || ''
       }
       console.log('[ADD_NOTE] Storing note:', newNote, 'at index:', existingIndex >= 0 ? existingIndex : 'new')
-      
+
       if (existingIndex >= 0) {
         newPattern[existingIndex] = newNote
       } else {
@@ -191,10 +262,15 @@ function projectReducer(state = initialState.project, action) {
         console.error('[REMOVE_NOTE] Missing beatIndex or subdivision:', action.payload)
         return state
       }
-      
-      const newPattern = instrument.pattern.filter(n => 
-        !(n.beatIndex === beatIndex && n.subdivision === subdivision)
-      )
+
+      // Support both flat subdivision (number) and nested paths (array)
+      const newPattern = instrument.pattern.filter(n => {
+        if (n.beatIndex !== beatIndex) return true
+        if (Array.isArray(n.subdivision) && Array.isArray(subdivision)) {
+          return JSON.stringify(n.subdivision) !== JSON.stringify(subdivision)
+        }
+        return n.subdivision !== subdivision
+      })
       
       return {
         ...state,
@@ -216,15 +292,24 @@ function projectReducer(state = initialState.project, action) {
       const section = state.sections[state.currentSection]
       const instrument = section.instruments.find(i => i.id === action.payload.instrumentId)
       if (!instrument) return state
-      
+
       const { beatIndex, subdivision, symbol, modifier, technique, effect } = action.payload
       if (beatIndex === undefined || subdivision === undefined) {
         console.error('[UPDATE_NOTE] Missing beatIndex or subdivision:', action.payload)
         return state
       }
-      
+
+      // Support both flat subdivision (number) and nested paths (array)
       const newPattern = instrument.pattern.map(n => {
-        if (n.beatIndex === beatIndex && n.subdivision === subdivision) {
+        const matches = (() => {
+          if (n.beatIndex !== beatIndex) return false
+          if (Array.isArray(n.subdivision) && Array.isArray(subdivision)) {
+            return JSON.stringify(n.subdivision) === JSON.stringify(subdivision)
+          }
+          return n.subdivision === subdivision
+        })()
+
+        if (matches) {
           return {
             ...n,
             symbol,
@@ -235,15 +320,15 @@ function projectReducer(state = initialState.project, action) {
         }
         return n
       })
-      
+
       return {
         ...state,
         sections: {
           ...state.sections,
           [state.currentSection]: {
             ...section,
-            instruments: section.instruments.map(i => 
-              i.id === action.payload.instrumentId 
+            instruments: section.instruments.map(i =>
+              i.id === action.payload.instrumentId
                 ? { ...i, pattern: newPattern }
                 : i
             )
@@ -282,6 +367,40 @@ function projectReducer(state = initialState.project, action) {
           }
         }
       }
+    
+    case 'UPDATE_GRID_BEAT_SUBDIVISION': {
+      const section = state.sections[state.currentSection]
+      const { beatIndex, subdivision } = action.payload
+      
+      // Initialize beatSubdivisions array if it doesn't exist
+      const totalBeats = section.grid.bars * section.grid.beats
+      const currentBeatSubdivisions = section.grid.beatSubdivisions || Array(totalBeats).fill(section.grid.subdivisions)
+      
+      // Update the specific beat subdivision at grid level
+      const newBeatSubdivisions = [...currentBeatSubdivisions]
+      newBeatSubdivisions[beatIndex] = subdivision
+      
+      console.log('UPDATE_GRID_BEAT_SUBDIVISION reducer:', {
+        beatIndex,
+        subdivision,
+        oldValue: currentBeatSubdivisions[beatIndex],
+        newBeatSubdivisions
+      })
+      
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            grid: {
+              ...section.grid,
+              beatSubdivisions: newBeatSubdivisions
+            }
+          }
+        }
+      }
+    }
     
     case 'TOGGLE_INSTRUMENT_VISIBILITY': {
       const section = state.sections[state.currentSection]
@@ -358,28 +477,110 @@ function projectReducer(state = initialState.project, action) {
     
     case 'UPDATE_BEAT_SUBDIVISION': {
       const section = state.sections[state.currentSection]
-      const beatIndex = action.payload.beatIndex
-      const newSubdivision = action.payload.subdivision
-      const newBeatSubdivisions = [...section.grid.beatSubdivisions]
+      const { instrumentId, beatIndex, subdivision: newSubdivision } = action.payload
+
+      // Find the target instrument
+      const instrumentIndex = section.instruments.findIndex(i => i.id === instrumentId)
+      if (instrumentIndex === -1) return state
+
+      const targetInstrument = section.instruments[instrumentIndex]
+
+      // Initialize beatSubdivisions array if it doesn't exist
+      const totalBeats = section.grid.bars * section.grid.beats
+      const currentBeatSubdivisions = targetInstrument.beatSubdivisions || Array(totalBeats).fill(null)
+
+      // Update the specific beat subdivision for this instrument
+      const newBeatSubdivisions = [...currentBeatSubdivisions]
       newBeatSubdivisions[beatIndex] = newSubdivision
-      
-      console.log('UPDATE_BEAT_SUBDIVISION reducer:', {
+
+      console.log('UPDATE_BEAT_SUBDIVISION reducer (per-instrument):', {
+        instrumentId,
         beatIndex,
         newSubdivision,
-        oldValue: section.grid.beatSubdivisions[beatIndex],
+        oldValue: currentBeatSubdivisions[beatIndex],
         newBeatSubdivisions
       })
-      
+
+      // Update the instrument with new beat subdivisions
+      const updatedInstruments = [...section.instruments]
+      updatedInstruments[instrumentIndex] = {
+        ...targetInstrument,
+        beatSubdivisions: newBeatSubdivisions
+      }
+
       return {
         ...state,
         sections: {
           ...state.sections,
           [state.currentSection]: {
             ...section,
-            grid: {
-              ...section.grid,
-              beatSubdivisions: newBeatSubdivisions
-            }
+            instruments: updatedInstruments
+          }
+        }
+      }
+    }
+
+    case 'UPDATE_NESTED_SUBDIVISION': {
+      const section = state.sections[state.currentSection]
+      const { instrumentId, beatIndex, stepPath, subdivision: newSubdivision } = action.payload
+
+      // Find the target instrument
+      const instrumentIndex = section.instruments.findIndex(i => i.id === instrumentId)
+      if (instrumentIndex === -1) return state
+
+      const targetInstrument = section.instruments[instrumentIndex]
+
+      // Initialize nested subdivisions if it doesn't exist
+      const totalBeats = section.grid.bars * section.grid.beats
+      const currentNestedSubdivisions = targetInstrument.nestedSubdivisions || {}
+
+      // Create a deep copy of nested subdivisions
+      const newNestedSubdivisions = JSON.parse(JSON.stringify(currentNestedSubdivisions))
+
+      // Build the nested structure
+      // stepPath is an array like [2, 1] for subdivision 2, nested step 1
+      // or [2, 1, 0] for deeper nesting
+      const beatKey = `${beatIndex}`
+      if (!newNestedSubdivisions[beatKey]) {
+        newNestedSubdivisions[beatKey] = {}
+      }
+
+      // Navigate to the correct nesting level
+      let current = newNestedSubdivisions[beatKey]
+      for (let i = 0; i < stepPath.length - 1; i++) {
+        const pathKey = stepPath.slice(0, i + 1).join('-')
+        if (!current[pathKey]) {
+          current[pathKey] = {}
+        }
+        current = current[pathKey]
+      }
+
+      // Set the subdivision value at the final path
+      const finalKey = stepPath.join('-')
+      current[finalKey] = newSubdivision
+
+      console.log('UPDATE_NESTED_SUBDIVISION reducer:', {
+        instrumentId,
+        beatIndex,
+        stepPath,
+        newSubdivision,
+        newNestedSubdivisions
+      })
+
+      // Update the instrument with new nested subdivisions
+      const updatedInstruments = [...section.instruments]
+      updatedInstruments[instrumentIndex] = {
+        ...targetInstrument,
+        nestedSubdivisions: newNestedSubdivisions
+      }
+
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            instruments: updatedInstruments
           }
         }
       }
@@ -412,7 +613,7 @@ function projectReducer(state = initialState.project, action) {
     
     case 'ADD_INSTRUMENT': {
       const section = state.sections[state.currentSection]
-      
+
       // Find the highest existing instrument number
       const existingNumbers = section.instruments
         .filter(i => i.name.startsWith('Instrument '))
@@ -420,11 +621,11 @@ function projectReducer(state = initialState.project, action) {
           const num = parseInt(i.name.replace('Instrument ', ''))
           return isNaN(num) ? 0 : num
         })
-      
-      const nextNumber = existingNumbers.length > 0 
-        ? Math.max(...existingNumbers) + 1 
+
+      const nextNumber = existingNumbers.length > 0
+        ? Math.max(...existingNumbers) + 1
         : 1
-      
+
       const newInstrument = {
         id: `instrument${Date.now()}`,
         name: `Instrument ${nextNumber}`,
@@ -435,7 +636,7 @@ function projectReducer(state = initialState.project, action) {
         order: section.instruments.length,
         pattern: []
       }
-      
+
       return {
         ...state,
         sections: {
@@ -447,7 +648,26 @@ function projectReducer(state = initialState.project, action) {
         }
       }
     }
-    
+
+    case 'DELETE_INSTRUMENT': {
+      const section = state.sections[state.currentSection]
+      const instrumentId = action.payload
+
+      // Filter out the instrument to be deleted
+      const updatedInstruments = section.instruments.filter(i => i.id !== instrumentId)
+
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [state.currentSection]: {
+            ...section,
+            instruments: updatedInstruments
+          }
+        }
+      }
+    }
+
     case 'CLEAR_ALL':
       const section = state.sections[state.currentSection]
       return {
@@ -668,6 +888,11 @@ function projectReducer(state = initialState.project, action) {
         id: newSectionId,
         name: newSectionName,
         notes: '',
+        metadata: {
+          tempo: currentSection.metadata?.tempo || 120,
+          type: 'loop',
+          loopLength: null
+        },
         instruments: [
           {
             id: `instrument1_${newSectionId}`,
@@ -724,6 +949,9 @@ function projectReducer(state = initialState.project, action) {
         ...sectionToDuplicate,
         id: duplicateId,
         name: `${sectionToDuplicate.name} (Copy)`,
+        metadata: {
+          ...(sectionToDuplicate.metadata || { tempo: 120, type: 'loop', loopLength: null })
+        },
         instruments: sectionToDuplicate.instruments.map(instrument => ({
           ...instrument,
           id: `${instrument.id}_${duplicateId}`,
@@ -794,7 +1022,7 @@ function projectReducer(state = initialState.project, action) {
       const { sectionId, updates } = action.payload
       const section = state.sections[sectionId]
       if (!section) return state
-      
+
       return {
         ...state,
         sections: {
@@ -802,6 +1030,26 @@ function projectReducer(state = initialState.project, action) {
           [sectionId]: {
             ...section,
             ...updates
+          }
+        }
+      }
+    }
+
+    case 'UPDATE_SECTION_METADATA': {
+      const { sectionId, metadata } = action.payload
+      const section = state.sections[sectionId]
+      if (!section) return state
+
+      return {
+        ...state,
+        sections: {
+          ...state.sections,
+          [sectionId]: {
+            ...section,
+            metadata: {
+              ...section.metadata,
+              ...metadata
+            }
           }
         }
       }
@@ -1219,11 +1467,14 @@ function uiReducer(state = initialState.ui, action) {
     
     case 'TOGGLE_SELECT_ONLY_MODE':
       return { ...state, selectOnlyMode: !state.selectOnlyMode }
-    
+
+    case 'SET_GRID_SCALE':
+      return { ...state, gridScale: action.payload }
+
     case 'NEW_PROJECT':
       // Reset to initial UI state
       return initialState.ui
-    
+
     default:
       return state
   }
@@ -1319,7 +1570,7 @@ function themesReducer(state = initialState.themes, action) {
   switch (action.type) {
     case 'SET_THEME':
       return { ...state, current: action.payload }
-    
+
     case 'ADD_CUSTOM_THEME':
       return {
         ...state,
@@ -1328,7 +1579,7 @@ function themesReducer(state = initialState.themes, action) {
           [action.payload.name]: action.payload.theme
         }
       }
-    
+
     case 'UPDATE_THEME':
       return {
         ...state,
@@ -1337,11 +1588,105 @@ function themesReducer(state = initialState.themes, action) {
           [state.current]: { ...state.presets[state.current], ...action.payload }
         }
       }
-    
+
     case 'NEW_PROJECT':
       // Reset to initial themes state
       return initialState.themes
-    
+
+    default:
+      return state
+  }
+}
+
+function exportConfigReducer(state = initialState.exportConfig, action) {
+  switch (action.type) {
+    case 'UPDATE_EXPORT_CONFIG':
+      return {
+        ...state,
+        ...action.payload
+      }
+
+    case 'UPDATE_EXPORT_LAYOUT':
+      return {
+        ...state,
+        layout: {
+          ...state.layout,
+          ...action.payload
+        }
+      }
+
+    case 'UPDATE_EXPORT_TYPOGRAPHY':
+      return {
+        ...state,
+        layout: {
+          ...state.layout,
+          typography: {
+            ...state.layout.typography,
+            ...action.payload
+          }
+        }
+      }
+
+    case 'UPDATE_EXPORT_SPACING':
+      return {
+        ...state,
+        layout: {
+          ...state.layout,
+          spacing: {
+            ...state.layout.spacing,
+            ...action.payload
+          }
+        }
+      }
+
+    case 'UPDATE_EXPORT_MARGINS':
+      return {
+        ...state,
+        layout: {
+          ...state.layout,
+          margins: {
+            ...state.layout.margins,
+            ...action.payload
+          }
+        }
+      }
+
+    case 'SET_EXPORT_SCOPE':
+      return { ...state, scope: action.payload }
+
+    case 'SET_EXPORT_FORMAT':
+      return { ...state, format: action.payload }
+
+    case 'SET_EXPORT_PAGE_SIZE':
+      return { ...state, pageSize: action.payload }
+
+    case 'SET_EXPORT_ORIENTATION':
+      return { ...state, orientation: action.payload }
+
+    case 'SET_BARS_PER_LINE':
+      return {
+        ...state,
+        layout: {
+          ...state.layout,
+          barsPerLine: action.payload
+        }
+      }
+
+    case 'TOGGLE_EXPORT_OPTION': {
+      const { option } = action.payload
+      return {
+        ...state,
+        layout: {
+          ...state.layout,
+          [option]: !state.layout[option]
+        }
+      }
+    }
+
+    case 'NEW_PROJECT':
+      // Reset to initial export config
+      return initialState.exportConfig
+
     default:
       return state
   }
@@ -1349,7 +1694,7 @@ function themesReducer(state = initialState.themes, action) {
 
 function rootReducer(state = initialState, action) {
   const prevState = state
-  
+
   const newState = {
     schemaVersion: state.schemaVersion,
     project: projectReducer(state.project, action),
@@ -1358,7 +1703,8 @@ function rootReducer(state = initialState, action) {
     breaks: breaksReducer(state.breaks, action),
     history: historyReducer(state.history, action, prevState),
     themes: themesReducer(state.themes, action),
-    midi: midiReducer(state.midi, action)
+    midi: midiReducer(state.midi, action),
+    exportConfig: exportConfigReducer(state.exportConfig, action)
   }
   
   if (action.type === 'LOAD_FULL_STATE') {
@@ -1370,6 +1716,7 @@ function rootReducer(state = initialState, action) {
       breaks: loadedState.breaks || state.breaks,
       themes: loadedState.themes || state.themes,
       midi: loadedState.midi || state.midi,
+      exportConfig: loadedState.exportConfig || state.exportConfig,
       history: {
         past: [],
         present: loadedState,

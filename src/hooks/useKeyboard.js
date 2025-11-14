@@ -7,9 +7,39 @@ export function useKeyboard(dispatch, state) {
     ctrl: false,
     meta: false
   })
-  
+
   // Track anchor bounds for keyboard selection (stores min/max of original selection)
   const keyboardAnchor = useRef(null)
+
+  // Helper to flatten nested subdivisions into a sequential list
+  const flattenSubdivisions = (instrument, beatIndex, subdivisionCount) => {
+    const flattened = []
+
+    const processSubdivision = (subdivPath) => {
+      // Check if this subdivision has nested children
+      const beatKey = `${beatIndex}`
+      const pathKey = Array.isArray(subdivPath) ? subdivPath.join('-') : `${subdivPath}`
+      const nestedCount = instrument.nestedSubdivisions?.[beatKey]?.[pathKey]
+
+      if (nestedCount) {
+        // Has nested subdivisions - recurse into them
+        for (let i = 0; i < nestedCount; i++) {
+          const childPath = Array.isArray(subdivPath) ? [...subdivPath, i] : [subdivPath, i]
+          processSubdivision(childPath)
+        }
+      } else {
+        // Leaf subdivision - add to flat list
+        flattened.push(subdivPath)
+      }
+    }
+
+    // Start with top-level subdivisions
+    for (let i = 0; i < subdivisionCount; i++) {
+      processSubdivision(i)
+    }
+
+    return flattened
+  }
   
   // Helper function to extract complete pattern from selected steps
   const getPatternFromSelection = () => {
@@ -88,20 +118,36 @@ export function useKeyboard(dispatch, state) {
   
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't trigger global shortcuts when typing in input fields
+      const target = e.target
+      if (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable) {
+        return
+      }
+
       keysPressed.current.shift = e.shiftKey
       keysPressed.current.ctrl = e.ctrlKey
       keysPressed.current.meta = e.metaKey
-      
+
       const isModKey = e.ctrlKey || e.metaKey
       
       if (isModKey) {
         switch(e.key.toLowerCase()) {
           case 'z':
             e.preventDefault()
-            dispatch({ type: 'UNDO' })
+            if (e.shiftKey) {
+              // Cmd/Ctrl + Shift + Z = Redo (alternative)
+              dispatch({ type: 'REDO' })
+            } else {
+              // Cmd/Ctrl + Z = Undo
+              dispatch({ type: 'UNDO' })
+            }
             break
           case 'y':
             e.preventDefault()
+            // Cmd/Ctrl + Y = Redo (keep existing)
             dispatch({ type: 'REDO' })
             break
           case 'c':
@@ -409,43 +455,82 @@ export function useKeyboard(dispatch, state) {
         }
         
         const { instrumentId, beatIndex, subdivision } = parseStepKey(baseCell)
-        
+
         const instruments = section.instruments
+        const instrument = instruments.find(i => i.id === instrumentId)
+        if (!instrument) return
+
         const instrumentIndex = instruments.findIndex(i => i.id === instrumentId)
-        const beatSubdivisions = section.grid.beatSubdivisions || 
+        const beatSubdivisions = section.grid.beatSubdivisions ||
           Array(section.grid.bars * section.grid.beats).fill(section.grid.subdivisions)
         const maxBeats = section.grid.bars * section.grid.beats
-        
+
         let newInstrumentIndex = instrumentIndex
         let newBeatIndex = beatIndex
         let newSubdivision = subdivision
-        
+
         switch(e.key) {
-          case 'ArrowLeft':
-            newSubdivision--
-            if (newSubdivision < 0) {
+          case 'ArrowLeft': {
+            // Get flattened list of subdivisions for current beat
+            const currentBeatSubdivs = beatSubdivisions[newBeatIndex] || section.grid.subdivisions
+            const flatSubdivs = flattenSubdivisions(instrument, newBeatIndex, currentBeatSubdivs)
+
+            // Find current subdivision in flat list
+            const currentIdx = flatSubdivs.findIndex(s =>
+              JSON.stringify(s) === JSON.stringify(subdivision)
+            )
+
+            if (currentIdx > 0) {
+              // Move to previous in same beat
+              newSubdivision = flatSubdivs[currentIdx - 1]
+            } else {
+              // Move to previous beat
               newBeatIndex--
               if (newBeatIndex >= 0) {
-                newSubdivision = (beatSubdivisions[newBeatIndex] || section.grid.subdivisions) - 1
+                const prevBeatSubdivs = beatSubdivisions[newBeatIndex] || section.grid.subdivisions
+                const prevFlatSubdivs = flattenSubdivisions(instrument, newBeatIndex, prevBeatSubdivs)
+                newSubdivision = prevFlatSubdivs[prevFlatSubdivs.length - 1]
               } else {
+                // At start - stay at first position
                 newBeatIndex = 0
-                newSubdivision = 0
+                const firstBeatSubdivs = beatSubdivisions[0] || section.grid.subdivisions
+                const firstFlatSubdivs = flattenSubdivisions(instrument, 0, firstBeatSubdivs)
+                newSubdivision = firstFlatSubdivs[0]
               }
             }
             break
-            
-          case 'ArrowRight':
-            newSubdivision++
+          }
+
+          case 'ArrowRight': {
+            // Get flattened list of subdivisions for current beat
             const currentBeatSubdivs = beatSubdivisions[newBeatIndex] || section.grid.subdivisions
-            if (newSubdivision >= currentBeatSubdivs) {
+            const flatSubdivs = flattenSubdivisions(instrument, newBeatIndex, currentBeatSubdivs)
+
+            // Find current subdivision in flat list
+            const currentIdx = flatSubdivs.findIndex(s =>
+              JSON.stringify(s) === JSON.stringify(subdivision)
+            )
+
+            if (currentIdx < flatSubdivs.length - 1) {
+              // Move to next in same beat
+              newSubdivision = flatSubdivs[currentIdx + 1]
+            } else {
+              // Move to next beat
               newBeatIndex++
-              newSubdivision = 0
-              if (newBeatIndex >= maxBeats) {
+              if (newBeatIndex < maxBeats) {
+                const nextBeatSubdivs = beatSubdivisions[newBeatIndex] || section.grid.subdivisions
+                const nextFlatSubdivs = flattenSubdivisions(instrument, newBeatIndex, nextBeatSubdivs)
+                newSubdivision = nextFlatSubdivs[0]
+              } else {
+                // At end - stay at last position
                 newBeatIndex = maxBeats - 1
-                newSubdivision = (beatSubdivisions[newBeatIndex] || section.grid.subdivisions) - 1
+                const lastBeatSubdivs = beatSubdivisions[newBeatIndex] || section.grid.subdivisions
+                const lastFlatSubdivs = flattenSubdivisions(instrument, newBeatIndex, lastBeatSubdivs)
+                newSubdivision = lastFlatSubdivs[lastFlatSubdivs.length - 1]
               }
             }
             break
+          }
             
           case 'ArrowUp':
             newInstrumentIndex--

@@ -34,10 +34,10 @@ export default function ExportKnob({ onClick, className, disabled = false }) {
       {/* Text content */}
       <div className="flex flex-col items-center justify-center text-center relative z-10">
         <span className="text-xs font-medium text-daw-bg-primary leading-tight">
-          Export
+          export to
         </span>
         <span className="text-xs font-medium text-daw-bg-primary leading-tight">
-          PDF/JPG
+          pdf/jpg
         </span>
       </div>
       

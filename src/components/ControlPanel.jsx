@@ -4,6 +4,7 @@ import { saveAs } from 'file-saver'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { Combobox } from './ui/combobox'
 import { ChevronUpIcon, ChevronDownIcon } from '@radix-ui/react-icons'
 import { parseStepKey, makeStepKey } from '../lib/selection'
 import {
@@ -516,6 +517,10 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
     return notes
   }
   
+  // Check if undo/redo are available
+  const canUndo = state.history.past.length > 0
+  const canRedo = state.history.future.length > 0
+
   const handleUndo = () => dispatch({ type: 'UNDO' })
   const handleRedo = () => dispatch({ type: 'REDO' })
   const handleCut = () => {
@@ -760,8 +765,8 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
           </DropdownMenu>
 
           <Button size="sm" onClick={handleNew}>New</Button>
-          <Button size="sm" onClick={handleUndo}>Undo</Button>
-          <Button size="sm" onClick={handleRedo}>Redo</Button>
+          <Button size="sm" onClick={handleUndo} disabled={!canUndo}>Undo</Button>
+          <Button size="sm" onClick={handleRedo} disabled={!canRedo}>Redo</Button>
           <Button size="sm" onClick={handleCut}>Cut</Button>
           <Button size="sm" onClick={handleCopy}>Copy</Button>
           <Button size="sm" onClick={handlePaste}>Paste</Button>
@@ -823,6 +828,18 @@ export default function ControlPanel({ onExport, onMidiImport, onLayoutClick }) 
           <Button size="sm" variant="primary" onClick={handleUpdateGrid}>
             Update Grid
           </Button>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-400">Grid Scale</label>
+            <Combobox
+              value={Math.round((state.ui?.gridScale || 1.0) * 100)}
+              onChange={(value) => dispatch({ type: 'SET_GRID_SCALE', payload: value / 100 })}
+              options={[50, 75, 100, 125, 150, 200]}
+              min={10}
+              max={500}
+              suffix="%"
+            />
+          </div>
           </div>
         </div>
       </div>

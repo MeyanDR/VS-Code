@@ -11,6 +11,24 @@ import GroupControls from './GroupControls'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { SortableInstrument } from './SortableInstrument'
+import { makeStepKey } from '../lib/selection'
+import { TrashIcon, GearIcon } from '@radix-ui/react-icons'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from './ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog'
+import { Button } from './ui/button'
 
 // Constants for fixed layout
 const BEAT_UNIT_WIDTH = 180  // Total width for beat anchor + subdivisions (increased for better step sizes)
@@ -23,6 +41,8 @@ export default function Grid({ interaction }) {
   const { state, dispatch } = useAppState()
   const [showSubdivisionModal, setShowSubdivisionModal] = useState(null)
   const [showInstrumentSettings, setShowInstrumentSettings] = useState(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [instrumentToDelete, setInstrumentToDelete] = useState(null)
   const section = state.project.sections[state.project.currentSection]
   // Multiple bar ranges for line breaks
   const [barRanges, setBarRanges] = useState(() => {
@@ -67,15 +87,43 @@ export default function Grid({ interaction }) {
   
   // Get note at specific beat and subdivision
   const getNoteAt = (instrument, beatIndex, subdivisionIndex) => {
-    return instrument.pattern.find(note => 
+    return instrument.pattern.find(note =>
       note.beatIndex === beatIndex && note.subdivision === subdivisionIndex
     )
   }
-  
+
+  // Helper: Get nested subdivision count for a given path
+  const getNestedSubdivision = (instrument, beatIndex, subdivisionPath) => {
+    if (!instrument.nestedSubdivisions) return null
+
+    const beatKey = `${beatIndex}`
+    const beatData = instrument.nestedSubdivisions[beatKey]
+    if (!beatData) return null
+
+    const pathKey = Array.isArray(subdivisionPath)
+      ? subdivisionPath.join('-')
+      : `${subdivisionPath}`
+
+    return beatData[pathKey] || null
+  }
+
+  // Helper: Get note at nested path
+  const getNoteAtNested = (instrument, beatIndex, subdivisionPath) => {
+    return instrument.pattern.find(note => {
+      if (note.beatIndex !== beatIndex) return false
+
+      if (Array.isArray(note.subdivision) && Array.isArray(subdivisionPath)) {
+        return JSON.stringify(note.subdivision) === JSON.stringify(subdivisionPath)
+      }
+
+      return note.subdivision === subdivisionPath
+    })
+  }
+
   // Check if a position is selected
   const isPositionSelected = (instrumentId, beatIndex, subdivisionIndex) => {
-    // Use the new selection key format: instrumentId-beatIndex-subdivision
-    const selectionKey = `${instrumentId}-${beatIndex}-${subdivisionIndex}`
+    // Use makeStepKey to properly handle both flat and nested subdivisions
+    const selectionKey = makeStepKey(instrumentId, beatIndex, subdivisionIndex)
     return state.ui.selectedSteps.has(selectionKey)
   }
   
@@ -144,7 +192,28 @@ export default function Grid({ interaction }) {
       payload: { groupId, name }
     })
   }
-  
+
+  const handleDeleteInstrumentClick = (instrument) => {
+    setInstrumentToDelete(instrument)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (instrumentToDelete) {
+      dispatch({
+        type: 'DELETE_INSTRUMENT',
+        payload: instrumentToDelete.id
+      })
+    }
+    setDeleteConfirmOpen(false)
+    setInstrumentToDelete(null)
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false)
+    setInstrumentToDelete(null)
+  }
+
   // Helper to check if instrument is in a group
   const getInstrumentGroup = (instrumentId) => {
     return groups.find(g => g.instrumentIds.includes(instrumentId))
@@ -381,6 +450,13 @@ export default function Grid({ interaction }) {
                     onMouseDown={interaction?.handleCellMouseDown}
                     onMouseEnter={interaction?.handleCellMouseEnter}
                     onDoubleClick={interaction?.handleDoubleClick}
+                    nestedSubdivisions={getNestedSubdivision(instrument, globalBeatIndex, subdivIndex)}
+                    getNestedSubdivisionFn={getNestedSubdivision}
+                    getNoteAtFn={getNoteAtNested}
+                    isSelectedFn={isPositionSelected}
+                    stepPath={[]}
+                    width={stepWidth}
+                    height={32}
                   />
                 </div>
               )
@@ -703,26 +779,47 @@ export default function Grid({ interaction }) {
                                                     />
                                                   </button>
                                                   
-                                                  {/* Settings/drag handle */}
-                                                  <button
-                                                    {...dragHandleProps}
-                                                    onClick={(e) => {
-                                                      if (!e.defaultPrevented) {
-                                                        setShowInstrumentSettings(groupInstrument)
-                                                      }
-                                                    }}
-                                                    className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
-                                                    title="Drag to reorder / Click for settings"
-                                                  >
-                                                    <svg className="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
-                                                      <circle cx="6" cy="6" r="1.5" />
-                                                      <circle cx="10" cy="6" r="1.5" />
-                                                      <circle cx="14" cy="6" r="1.5" />
-                                                      <circle cx="6" cy="14" r="1.5" />
-                                                      <circle cx="10" cy="14" r="1.5" />
-                                                      <circle cx="14" cy="14" r="1.5" />
-                                                    </svg>
-                                                  </button>
+                                                  {/* Settings/drag handle with dropdown */}
+                                                  <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                      <button
+                                                        {...dragHandleProps}
+                                                        className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
+                                                        title="Drag to reorder / Click for menu"
+                                                      >
+                                                        <svg className="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
+                                                          <circle cx="6" cy="6" r="1.5" />
+                                                          <circle cx="10" cy="6" r="1.5" />
+                                                          <circle cx="14" cy="6" r="1.5" />
+                                                          <circle cx="6" cy="14" r="1.5" />
+                                                          <circle cx="10" cy="14" r="1.5" />
+                                                          <circle cx="14" cy="14" r="1.5" />
+                                                        </svg>
+                                                      </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="start">
+                                                      <DropdownMenuItem
+                                                        onClick={(e) => {
+                                                          e.stopPropagation()
+                                                          setShowInstrumentSettings(groupInstrument)
+                                                        }}
+                                                      >
+                                                        <GearIcon className="mr-2 h-3 w-3" />
+                                                        Settings
+                                                      </DropdownMenuItem>
+                                                      <DropdownMenuSeparator />
+                                                      <DropdownMenuItem
+                                                        onClick={(e) => {
+                                                          e.stopPropagation()
+                                                          handleDeleteInstrumentClick(groupInstrument)
+                                                        }}
+                                                        className="text-red-400 focus:text-red-400"
+                                                      >
+                                                        <TrashIcon className="mr-2 h-3 w-3" />
+                                                        Delete
+                                                      </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                  </DropdownMenu>
                                                   
                                                   {/* Instrument label - now as header */}
                                                   <div className="flex-1">
@@ -832,26 +929,47 @@ export default function Grid({ interaction }) {
                                               />
                                             </button>
                                             
-                                            {/* Settings/drag handle */}
-                                            <button
-                                              {...dragHandleProps}
-                                              onClick={(e) => {
-                                                if (!e.defaultPrevented) {
-                                                  setShowInstrumentSettings(instrument)
-                                                }
-                                              }}
-                                              className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
-                                              title="Drag to reorder / Click for settings"
-                                            >
-                                              <svg className="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
-                                                <circle cx="6" cy="6" r="1.5" />
-                                                <circle cx="10" cy="6" r="1.5" />
-                                                <circle cx="14" cy="6" r="1.5" />
-                                                <circle cx="6" cy="14" r="1.5" />
-                                                <circle cx="10" cy="14" r="1.5" />
-                                                <circle cx="14" cy="14" r="1.5" />
-                                              </svg>
-                                            </button>
+                                            {/* Settings/drag handle with dropdown */}
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <button
+                                                  {...dragHandleProps}
+                                                  className="p-1 hover:bg-gray-700 rounded transition-colors cursor-grab active:cursor-grabbing"
+                                                  title="Drag to reorder / Click for menu"
+                                                >
+                                                  <svg className="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
+                                                    <circle cx="6" cy="6" r="1.5" />
+                                                    <circle cx="10" cy="6" r="1.5" />
+                                                    <circle cx="14" cy="6" r="1.5" />
+                                                    <circle cx="6" cy="14" r="1.5" />
+                                                    <circle cx="10" cy="14" r="1.5" />
+                                                    <circle cx="14" cy="14" r="1.5" />
+                                                  </svg>
+                                                </button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="start">
+                                                <DropdownMenuItem
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    setShowInstrumentSettings(instrument)
+                                                  }}
+                                                >
+                                                  <GearIcon className="mr-2 h-3 w-3" />
+                                                  Settings
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleDeleteInstrumentClick(instrument)
+                                                  }}
+                                                  className="text-red-400 focus:text-red-400"
+                                                >
+                                                  <TrashIcon className="mr-2 h-3 w-3" />
+                                                  Delete
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
                                             
                                             {/* Instrument label - now as header */}
                                             <div className="flex-1">
@@ -1012,11 +1130,11 @@ export default function Grid({ interaction }) {
       <div id="drum-grid" className="space-y-4">
         {renderBarGroup()}
       </div>
-      
+
       {/* Modals */}
       <StepEditModal />
       <SubdivisionModal />
-      
+
       {/* Instrument Settings Modal */}
       {showInstrumentSettings && (
         <InstrumentSettings
@@ -1028,6 +1146,26 @@ export default function Grid({ interaction }) {
           currentMeasures={showInstrumentSettings.measures || grid.bars}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Instrument</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{instrumentToDelete?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelDelete}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

@@ -19,6 +19,7 @@ export default function EditModal() {
   const [modifier, setModifier] = useState('')
   const [technique, setTechnique] = useState('')
   const [effect, setEffect] = useState('')
+  const [showSubdivideMenu, setShowSubdivideMenu] = useState(false)
   
   useEffect(() => {
     if (editingStep) {
@@ -81,6 +82,58 @@ export default function EditModal() {
     }
     handleClose()
   }
+
+  const handleSubdivide = (subdivisionValue) => {
+    if (editingStep) {
+      // Get the current subdivision path
+      const currentPath = Array.isArray(editingStep.subdivision)
+        ? editingStep.subdivision
+        : [editingStep.subdivision]
+
+      // Dispatch nested subdivision update
+      dispatch({
+        type: 'UPDATE_NESTED_SUBDIVISION',
+        payload: {
+          instrumentId: editingStep.instrumentId,
+          beatIndex: editingStep.beatIndex,
+          stepPath: currentPath,
+          subdivision: subdivisionValue
+        }
+      })
+
+      // If there's a note at this position, migrate it to the first nested subdivision
+      if (symbol) {
+        // Remove current note
+        dispatch({
+          type: 'REMOVE_NOTE',
+          payload: {
+            instrumentId: editingStep.instrumentId,
+            beatIndex: editingStep.beatIndex,
+            subdivision: editingStep.subdivision
+          }
+        })
+
+        // Add note at first nested subdivision
+        const newSubdivisionPath = Array.isArray(editingStep.subdivision)
+          ? [...editingStep.subdivision, 0]
+          : [editingStep.subdivision, 0]
+
+        dispatch({
+          type: 'ADD_NOTE',
+          payload: {
+            instrumentId: editingStep.instrumentId,
+            beatIndex: editingStep.beatIndex,
+            subdivision: newSubdivisionPath,
+            symbol,
+            modifier,
+            technique,
+            effect
+          }
+        })
+      }
+    }
+    handleClose()
+  }
   
   return (
     <Dialog open={!!editingStep} onOpenChange={handleClose}>
@@ -104,7 +157,7 @@ export default function EditModal() {
               className="col-span-3"
             />
           </div>
-          
+
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="modifier" className="text-right">
               Articulation
@@ -117,7 +170,7 @@ export default function EditModal() {
               placeholder="e.g., >, 1, 2, 3, (...)"
             />
           </div>
-          
+
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="technique" className="text-right">
               Technique
@@ -130,7 +183,7 @@ export default function EditModal() {
               placeholder="e.g., R, L, B"
             />
           </div>
-          
+
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="effect" className="text-right">
               Effect
@@ -142,6 +195,44 @@ export default function EditModal() {
               className="col-span-3"
               placeholder="e.g., ↑, ↓, ※"
             />
+          </div>
+
+          {/* Subdivide section */}
+          <div className="border-t pt-4 mt-2">
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-sm font-semibold">Subdivide Step</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSubdivideMenu(!showSubdivideMenu)}
+                className="text-xs"
+              >
+                {showSubdivideMenu ? 'Hide' : 'Show'}
+              </Button>
+            </div>
+
+            {showSubdivideMenu && (
+              <div className="mt-3">
+                <p className="text-xs text-gray-500 mb-3">
+                  Choose how many subdivisions to create within this step:
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                    <Button
+                      key={num}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSubdivide(num)}
+                      className="h-12 text-sm font-semibold hover:bg-cyan-600 hover:text-white hover:border-cyan-400"
+                    >
+                      {num}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         

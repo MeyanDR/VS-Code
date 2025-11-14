@@ -58,6 +58,7 @@ export default {
       },
       fontFamily: {
         'mono': ['SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'monospace'],
+        'dancing': ['Dancing Script', 'cursive'],
       },
       boxShadow: {
         'panel': '0 2px 8px rgba(0, 0, 0, 0.3)',

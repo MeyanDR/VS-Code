@@ -24,11 +24,18 @@ export default function Header() {
         <div className="flex items-center gap-3">
           <span className="text-3xl">🥁</span>
           <div>
-            <h1 className="text-2xl font-bold text-daw-text-primary">
-              The <span className="text-daw-accent">TROMKLUB</span> machine
-            </h1>
-            <p className="text-xs text-daw-text-dim">
-              Made By Jan Heirman
+            <a
+              href="https://moreismore.be/tromklub/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <h1 className="text-3xl font-bold text-daw-text-primary">
+                The <span className="text-daw-accent">TROMKLUB</span> machine
+              </h1>
+            </a>
+            <p className="text-white font-bold font-dancing" style={{ fontSize: '15px', letterSpacing: '0.15em' }}>
+              By Jan Heirman, thanks to Maarten Lauwaert
             </p>
           </div>
         </div>

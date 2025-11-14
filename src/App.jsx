@@ -13,6 +13,7 @@ import SortablePanel from './components/SortablePanel'
 import ExportModal from './components/ExportModal'
 import LayoutControls from './components/LayoutControls'
 import MidiImportModal from './components/MidiImportModal'
+import NotesPanel from './components/NotesPanel'
 import { Button } from './components/ui/button'
 import { Toaster } from './components/ui/toaster'
 import { useToast } from './hooks/useToast'
@@ -374,14 +375,17 @@ function AppContent() {
         
         {/* Control Bar */}
         <div className="bg-daw-bg-secondary border-b border-daw-border shadow-panel">
-          <ControlPanel 
+          <ControlPanel
             onExport={handleExport}
             onMidiImport={handleMidiImport}
             onLayoutClick={() => setShowLayoutControls(!showLayoutControls)}
           />
           {showLayoutControls && <LayoutControls />}
         </div>
-        
+
+        {/* Notes Section */}
+        <NotesPanel />
+
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Sidebar */}
