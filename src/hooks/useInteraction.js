@@ -29,10 +29,17 @@ export function useInteraction(dispatch, state) {
     
     const cellKey = makeStepKey(instrumentId, beatIndex, subdivision)
     console.log('[handleCellMouseDown] Created cellKey:', cellKey)
-    
+
     const hasNote = state.project.sections[state.project.currentSection]
       ?.instruments.find(i => i.id === instrumentId)
-      ?.pattern.some(n => n.beatIndex === beatIndex && n.subdivision === subdivision)
+      ?.pattern.some(n => {
+        if (n.beatIndex !== beatIndex) return false
+        // Handle array subdivision paths
+        if (Array.isArray(n.subdivision) && Array.isArray(subdivision)) {
+          return JSON.stringify(n.subdivision) === JSON.stringify(subdivision)
+        }
+        return n.subdivision === subdivision
+      })
     console.log('[handleCellMouseDown] Has note:', hasNote)
     
     if (ctrlKey || metaKey) {
@@ -116,7 +123,14 @@ export function useInteraction(dispatch, state) {
           // Click on existing note: Open edit modal
           const note = state.project.sections[state.project.currentSection]
             ?.instruments.find(i => i.id === instrumentId)
-            ?.pattern.find(n => n.beatIndex === beatIndex && n.subdivision === subdivision)
+            ?.pattern.find(n => {
+              if (n.beatIndex !== beatIndex) return false
+              // Handle array subdivision paths
+              if (Array.isArray(n.subdivision) && Array.isArray(subdivision)) {
+                return JSON.stringify(n.subdivision) === JSON.stringify(subdivision)
+              }
+              return n.subdivision === subdivision
+            })
           
           if (note) {
             dispatch({
@@ -180,8 +194,15 @@ export function useInteraction(dispatch, state) {
     
     const hasNote = state.project.sections[state.project.currentSection]
       ?.instruments.find(i => i.id === instrumentId)
-      ?.pattern.some(n => n.beatIndex === beatIndex && n.subdivision === subdivision)
-    
+      ?.pattern.some(n => {
+        if (n.beatIndex !== beatIndex) return false
+        // Handle array subdivision paths
+        if (Array.isArray(n.subdivision) && Array.isArray(subdivision)) {
+          return JSON.stringify(n.subdivision) === JSON.stringify(subdivision)
+        }
+        return n.subdivision === subdivision
+      })
+
     switch (dragMode) {
       case 'paint':
         // Paint mode: Add note with same symbol/modifier
@@ -246,7 +267,14 @@ export function useInteraction(dispatch, state) {
   const handleDoubleClick = useCallback((instrumentId, beatIndex, subdivision) => {
     const section = state.project.sections[state.project.currentSection]
     const instrument = section?.instruments.find(i => i.id === instrumentId)
-    const note = instrument?.pattern.find(n => n.beatIndex === beatIndex && n.subdivision === subdivision)
+    const note = instrument?.pattern.find(n => {
+      if (n.beatIndex !== beatIndex) return false
+      // Handle array subdivision paths
+      if (Array.isArray(n.subdivision) && Array.isArray(subdivision)) {
+        return JSON.stringify(n.subdivision) === JSON.stringify(subdivision)
+      }
+      return n.subdivision === subdivision
+    })
     
     if (note) {
       dispatch({

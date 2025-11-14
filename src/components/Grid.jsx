@@ -1127,7 +1127,14 @@ export default function Grid({ interaction }) {
   
   return (
     <>
-      <div id="drum-grid" className="space-y-4">
+      <div
+        id="drum-grid"
+        className="space-y-4"
+        style={{
+          transform: `scale(${state.ui.gridScale})`,
+          transformOrigin: 'top left'
+        }}
+      >
         {renderBarGroup()}
       </div>
 

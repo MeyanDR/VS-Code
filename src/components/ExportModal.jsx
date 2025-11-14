@@ -812,7 +812,7 @@ const ExportModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Right Column - Preview */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0">
             {/* Preview Header */}
             <div className="flex items-center justify-between mb-4 pb-2 border-b">
               <h3 className="text-sm font-medium">Preview</h3>
@@ -892,7 +892,7 @@ const ExportModal = ({ isOpen, onClose }) => {
 
             {/* Preview Area */}
             <div className="flex-1 bg-daw-bg-primary rounded-lg overflow-auto">
-              <div className="py-8 px-4 flex justify-center items-start min-h-full">
+              <div className="py-8 px-4 flex justify-center items-start">
                 {isGeneratingPreview ? (
                   <div className="flex flex-col items-center justify-center h-40 space-y-2">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

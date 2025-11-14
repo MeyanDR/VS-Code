@@ -537,27 +537,19 @@ function projectReducer(state = initialState.project, action) {
       // Create a deep copy of nested subdivisions
       const newNestedSubdivisions = JSON.parse(JSON.stringify(currentNestedSubdivisions))
 
-      // Build the nested structure
-      // stepPath is an array like [2, 1] for subdivision 2, nested step 1
-      // or [2, 1, 0] for deeper nesting
+      // Build the nested structure using a FLAT format
+      // All subdivision counts are stored at the beat level with joined path keys
+      // stepPath [3] → key "3"
+      // stepPath [3, 0] → key "3-0"
+      // stepPath [3, 0, 1] → key "3-0-1"
       const beatKey = `${beatIndex}`
       if (!newNestedSubdivisions[beatKey]) {
         newNestedSubdivisions[beatKey] = {}
       }
 
-      // Navigate to the correct nesting level
-      let current = newNestedSubdivisions[beatKey]
-      for (let i = 0; i < stepPath.length - 1; i++) {
-        const pathKey = stepPath.slice(0, i + 1).join('-')
-        if (!current[pathKey]) {
-          current[pathKey] = {}
-        }
-        current = current[pathKey]
-      }
-
-      // Set the subdivision value at the final path
-      const finalKey = stepPath.join('-')
-      current[finalKey] = newSubdivision
+      // Store subdivision count directly with the path as key
+      const pathKey = stepPath.join('-')
+      newNestedSubdivisions[beatKey][pathKey] = newSubdivision
 
       console.log('UPDATE_NESTED_SUBDIVISION reducer:', {
         instrumentId,

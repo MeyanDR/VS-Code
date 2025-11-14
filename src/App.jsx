@@ -371,8 +371,10 @@ function AppContent() {
     <div className="min-h-screen bg-daw-bg-primary text-daw-text-primary">
       <div className="flex flex-col h-screen">
         {/* Header Section */}
-        <Header />
-        
+        <div className="mb-6">
+          <Header />
+        </div>
+
         {/* Control Bar */}
         <div className="bg-daw-bg-secondary border-b border-daw-border shadow-panel">
           <ControlPanel
@@ -389,7 +391,7 @@ function AppContent() {
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Sidebar */}
-          <div className="w-80 bg-daw-bg-panel border-r border-daw-border flex flex-col p-4 overflow-y-auto">
+          <div className="w-80 bg-daw-bg-panel border-r border-daw-border flex flex-col p-4 pl-6 overflow-y-auto">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -412,7 +414,7 @@ function AppContent() {
           
           {/* Main Grid Area */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto py-6 px-2 bg-daw-bg-primary">
+            <div className="flex-1 overflow-auto pt-8 pb-6 pl-6 pr-4 bg-daw-bg-primary">
               <Grid interaction={interaction} />
             </div>
             
